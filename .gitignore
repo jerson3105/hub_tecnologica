@@ -1,0 +1,26 @@
+# Dependencies
+**/node_modules/
+
+# Build output
+client/dist/
+client/dist-ssr/
+
+# Logs
+**/logs/
+**/*.log
+
+# Environment files
+**/.env
+**/.env.*
+!**/.env.example
+
+# Runtime uploads
+uploads/
+server/uploads/
+
+# Local editor and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
