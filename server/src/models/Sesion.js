@@ -9,11 +9,12 @@ const Sesion = sequelize.define('Sesion', {
   },
   programa_id: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
     references: {
       model: 'programas',
       key: 'id'
-    }
+    },
+    comment: 'Nullable para sesiones multi-programa. Usar sesion_programas para la relacion real.'
   },
   titulo: {
     type: DataTypes.STRING(200),

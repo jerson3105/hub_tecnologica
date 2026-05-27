@@ -1,11 +1,12 @@
-const { Nps, Programa, Sesion, Usuario, Integrante, Emprendimiento } = require('../models');
+const { Nps, Programa, Sesion, SesionPrograma, Usuario, Integrante, Emprendimiento } = require('../models');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 const logger = require('../utils/logger');
 
 const crear = async (req, res) => {
   try {
-    const { sesion_id, programa_id, puntuacion, comentario, tipo, areas_mejora } = req.body;
+    const { sesion_id, puntuacion, comentario, tipo, areas_mejora } = req.body;
+    let { programa_id } = req.body;
 
     // Prevenir duplicados: un usuario solo puede dar NPS una vez por sesión
     if (sesion_id) {
@@ -15,6 +16,15 @@ const crear = async (req, res) => {
       if (existente) {
         return res.status(400).json({ mensaje: 'Ya has enviado tu evaluación para esta sesión' });
       }
+    }
+
+    // Auto-resolver programa_id desde el emprendimiento del usuario si no viene del cliente
+    if (!programa_id && sesion_id) {
+      const integrante = await Integrante.findOne({
+        where: { usuario_id: req.usuario.id },
+        include: [{ model: Emprendimiento, as: 'emprendimiento', attributes: ['programa_id'] }]
+      });
+      programa_id = integrante?.emprendimiento?.programa_id || null;
     }
 
     const nps = await Nps.create({
@@ -160,9 +170,15 @@ const misPendientes = async (req, res) => {
       return res.json({ pendientes: [] });
     }
 
-    // Obtener todas las sesiones de esos programas
+    // Obtener todas las sesiones accesibles para el emprendedor via sesion_programas
     const sesiones = await Sesion.findAll({
-      where: { programa_id: { [Op.in]: programaIds } },
+      include: [{
+        model: Programa,
+        as: 'programas',
+        through: { attributes: [] },
+        where: { id: { [Op.in]: programaIds } },
+        required: true
+      }],
       attributes: ['id'],
       order: [['fecha', 'DESC']]
     });

@@ -8,7 +8,7 @@ const validate = require('../middleware/validate');
 router.use(verificarToken);
 
 router.post('/', [
-  body('programa_id').isInt().withMessage('El programa es requerido'),
+  body('programa_id').optional().isInt().withMessage('El programa debe ser un número entero'),
   body('puntuacion').isInt({ min: 0, max: 10 }).withMessage('La puntuación debe ser entre 0 y 10'),
   body('tipo').isIn(['taller', 'seguimiento', 'programa_medio', 'programa_final']).withMessage('Tipo inválido')
 ], validate, npsController.crear);

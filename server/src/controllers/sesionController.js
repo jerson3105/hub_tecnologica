@@ -1,23 +1,31 @@
-const { Sesion, Programa, Seguimiento, Emprendimiento, Asistencia, Usuario, Archivo, Integrante } = require('../models');
+const { Sesion, SesionPrograma, Programa, Seguimiento, Emprendimiento, Asistencia, Usuario, Archivo, Integrante } = require('../models');
+const { Op } = require('sequelize');
 const logger = require('../utils/logger');
 
 const crear = async (req, res) => {
   try {
-    const { programa_id, titulo, descripcion, fecha, tipo, enlace_grabacion } = req.body;
+    const { programa_ids, titulo, descripcion, fecha, tipo, enlace_grabacion } = req.body;
 
-    const programa = await Programa.findByPk(programa_id);
-    if (!programa) {
-      return res.status(404).json({ mensaje: 'Programa no encontrado' });
+    const ids = (Array.isArray(programa_ids) ? programa_ids : [programa_ids]).map(Number).filter(Boolean);
+    if (!ids.length) {
+      return res.status(400).json({ mensaje: 'Debe seleccionar al menos un programa' });
+    }
+
+    const programas = await Programa.findAll({ where: { id: ids } });
+    if (programas.length !== ids.length) {
+      return res.status(404).json({ mensaje: 'Uno o más programas no encontrados' });
     }
 
     const sesion = await Sesion.create({
-      programa_id,
+      programa_id: ids.length === 1 ? ids[0] : null,
       titulo,
       descripcion,
       fecha,
       tipo,
       enlace_grabacion
     });
+
+    await SesionPrograma.bulkCreate(ids.map(pid => ({ sesion_id: sesion.id, programa_id: pid })));
 
     res.status(201).json({ mensaje: 'Sesión creada exitosamente', sesion });
   } catch (error) {
@@ -30,29 +38,37 @@ const listar = async (req, res) => {
   try {
     const { programa_id, tipo } = req.query;
     const where = {};
-    if (programa_id) where.programa_id = programa_id;
     if (tipo) where.tipo = tipo;
 
-    // Si es emprendedor, solo mostrar sesiones de sus programas
+    const programasInclude = {
+      model: Programa,
+      as: 'programas',
+      through: { attributes: [] },
+      attributes: ['id', 'nombre']
+    };
+
+    if (programa_id) {
+      programasInclude.where = { id: programa_id };
+      programasInclude.required = true;
+    }
+
     if (req.usuario.rol === 'emprendedor') {
       const integrantes = await Integrante.findAll({
         where: { usuario_id: req.usuario.id },
         include: [{ model: Emprendimiento, as: 'emprendimiento', attributes: ['programa_id'] }]
       });
       const programaIds = [...new Set(integrantes.map(i => i.emprendimiento?.programa_id).filter(Boolean))];
-      if (programaIds.length > 0) {
-        const { Op } = require('sequelize');
-        where.programa_id = { [Op.in]: programaIds };
-      } else {
-        return res.json({ sesiones: [] });
+      if (!programaIds.length) return res.json({ sesiones: [] });
+
+      if (!programa_id) {
+        programasInclude.where = { id: { [Op.in]: programaIds } };
+        programasInclude.required = true;
       }
     }
 
     const sesiones = await Sesion.findAll({
       where,
-      include: [
-        { model: Programa, as: 'programa', attributes: ['id', 'nombre'] }
-      ],
+      include: [programasInclude],
       order: [['fecha', 'DESC']]
     });
 
@@ -79,6 +95,7 @@ const obtenerPorId = async (req, res) => {
 
     const sesion = await Sesion.findByPk(req.params.id, {
       include: [
+        { model: Programa, as: 'programas', through: { attributes: [] }, attributes: ['id', 'nombre'] },
         { model: Programa, as: 'programa', attributes: ['id', 'nombre'] },
         {
           model: Seguimiento,
@@ -136,7 +153,21 @@ const actualizar = async (req, res) => {
       return res.status(404).json({ mensaje: 'Sesión no encontrada' });
     }
 
-    const { titulo, descripcion, fecha, tipo, enlace_grabacion } = req.body;
+    const { programa_ids, titulo, descripcion, fecha, tipo, enlace_grabacion } = req.body;
+
+    if (programa_ids) {
+      const ids = (Array.isArray(programa_ids) ? programa_ids : [programa_ids]).map(Number).filter(Boolean);
+      if (!ids.length) {
+        return res.status(400).json({ mensaje: 'Debe seleccionar al menos un programa' });
+      }
+      const programas = await Programa.findAll({ where: { id: ids } });
+      if (programas.length !== ids.length) {
+        return res.status(404).json({ mensaje: 'Uno o más programas no encontrados' });
+      }
+      await SesionPrograma.destroy({ where: { sesion_id: sesion.id } });
+      await SesionPrograma.bulkCreate(ids.map(pid => ({ sesion_id: sesion.id, programa_id: pid })));
+      await sesion.update({ programa_id: ids.length === 1 ? ids[0] : null });
+    }
 
     await sesion.update({
       titulo: titulo || sesion.titulo,

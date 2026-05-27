@@ -107,9 +107,15 @@ const timelineEmprendimiento = async (req, res) => {
     const emp = await Emprendimiento.findByPk(emprendimiento_id, { attributes: ['id', 'programa_id'] });
     if (!emp) return res.status(404).json({ mensaje: 'Emprendimiento no encontrado' });
 
-    // Obtener todas las sesiones del programa
+    // Obtener todas las sesiones del programa via sesion_programas
     const sesiones = await Sesion.findAll({
-      where: { programa_id: emp.programa_id },
+      include: [{
+        model: Programa,
+        as: 'programas',
+        through: { attributes: [] },
+        where: { id: emp.programa_id },
+        required: true
+      }],
       attributes: ['id'],
       order: [['fecha', 'ASC']]
     });
