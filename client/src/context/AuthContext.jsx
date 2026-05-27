@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '../services/api';
 
 const AuthContext = createContext(null);
@@ -10,6 +11,7 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
+  const queryClient = useQueryClient();
   const [usuario, setUsuario] = useState(null);
   const [cargando, setCargando] = useState(true);
 
@@ -28,16 +30,18 @@ export const AuthProvider = ({ children }) => {
           localStorage.removeItem('token');
           localStorage.removeItem('usuario');
           setUsuario(null);
+          queryClient.clear();
         })
         .finally(() => setCargando(false));
     } else {
       setCargando(false);
     }
-  }, []);
+  }, [queryClient]);
 
   const login = async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
     const { token, usuario: usr } = res.data;
+    queryClient.clear();
     localStorage.setItem('token', token);
     localStorage.setItem('usuario', JSON.stringify(usr));
     setUsuario(usr);
@@ -48,6 +52,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('usuario');
     setUsuario(null);
+    queryClient.clear();
   };
 
   return (
