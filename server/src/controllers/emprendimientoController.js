@@ -3,6 +3,7 @@ const { Emprendimiento, Integrante, Usuario, Programa, Seguimiento, Archivo, Ses
 const { generarPasswordAleatorio } = require('../utils/helpers');
 const { paginate, paginatedResponse } = require('../utils/pagination');
 const logger = require('../utils/logger');
+const { normalizeUserPayload } = require('../utils/userPayload');
 
 const crear = async (req, res) => {
   try {
@@ -161,7 +162,7 @@ const agregarIntegrante = async (req, res) => {
       nombre, apellido, dni, edad, fecha_nacimiento, telefono, email,
       direccion, distrito, provincia, ciudad, linkedin, genero, area, cargo, dedicacion,
       rol_emprendimiento, es_lider
-    } = req.body;
+    } = { ...req.body, ...normalizeUserPayload(req.body) };
 
     const emprendimiento = await Emprendimiento.findByPk(id);
     if (!emprendimiento) {
