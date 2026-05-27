@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { GraduationCap, Linkedin, Calendar, Search, Briefcase, Globe, Target, ExternalLink, Sparkles, X, AlertCircle, FileText } from 'lucide-react';
 import { useMentores } from '../hooks/useQueryHooks';
 import api from '../services/api';
+import { resolveMentorPhotoUrl } from '../services/media';
 import MentorMatch from './MentorMatch';
 
 const parseJSON = (val) => {
@@ -138,7 +139,7 @@ const MisMentores = () => {
                   {/* Header: Photo + Info */}
                   <div className="flex items-start gap-4">
                     {mentor.foto ? (
-                      <img src={`${window.location.protocol}//${window.location.hostname}:5000${mentor.foto}`} alt={mentor.nombre} className="w-20 h-20 rounded-2xl object-cover shadow-md flex-shrink-0" />
+                      <img src={resolveMentorPhotoUrl(mentor.foto)} alt={mentor.nombre} className="w-20 h-20 rounded-2xl object-cover shadow-md flex-shrink-0" />
                     ) : (
                       <div className="w-20 h-20 rounded-2xl bg-brand-purple/10 flex items-center justify-center shadow-md flex-shrink-0">
                         <span className="text-2xl font-bold text-brand-purple">{mentor.nombre.charAt(0)}{mentor.apellido.charAt(0)}</span>

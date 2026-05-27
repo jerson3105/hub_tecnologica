@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import api from '../services/api';
+import { resolveMentorPhotoUrl } from '../services/media';
 import Modal from '../components/Modal';
 import { GraduationCap, Plus, Edit3, Trash2, Linkedin, Calendar, Search, X, Camera, Globe, Briefcase, Target } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -58,7 +59,7 @@ const Mentores = () => {
         biografia: mentor.biografia || '', foto: null,
         sesiones: parseJSON(mentor.sesiones), startups: parseJSON(mentor.startups), ods: parseJSON(mentor.ods)
       });
-      setFotoPreview(mentor.foto ? `${window.location.protocol}//${window.location.hostname}:5000${mentor.foto}` : null);
+      setFotoPreview(resolveMentorPhotoUrl(mentor.foto));
     } else {
       setEditando(null);
       setForm({ nombre: '', apellido: '', linkedin: '', calendly: '', biografia: '', foto: null, sesiones: [], startups: [], ods: [] });
@@ -126,7 +127,7 @@ const Mentores = () => {
       await api.delete(`/mentores/${id}`);
       toast.success('Mentor desactivado');
       invalidate('mentores');
-    } catch (error) {
+    } catch {
       toast.error('Error al desactivar mentor');
     }
   };
@@ -185,7 +186,7 @@ const Mentores = () => {
                 {/* Header: Photo + Actions */}
                 <div className="flex items-start gap-4">
                   {mentor.foto ? (
-                    <img src={`${window.location.protocol}//${window.location.hostname}:5000${mentor.foto}`} alt={mentor.nombre} className="w-20 h-20 rounded-2xl object-cover shadow-md flex-shrink-0" />
+                    <img src={resolveMentorPhotoUrl(mentor.foto)} alt={mentor.nombre} className="w-20 h-20 rounded-2xl object-cover shadow-md flex-shrink-0" />
                   ) : (
                     <div className="w-20 h-20 rounded-2xl bg-brand-purple/10 flex items-center justify-center shadow-md flex-shrink-0">
                       <span className="text-2xl font-bold text-brand-purple">{mentor.nombre.charAt(0)}{mentor.apellido.charAt(0)}</span>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import api from '../services/api';
+import { resolveMentorPhotoUrl } from '../services/media';
 import { Sparkles, ChevronRight, ChevronLeft, Loader2, GraduationCap, Target, Trophy, MessageSquare, ExternalLink, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -292,7 +293,7 @@ const MentorMatch = ({ onClose }) => {
               {/* Foto / Avatar */}
               <div className="flex-shrink-0">
                 {match.mentor?.foto ? (
-                  <img src={`${window.location.protocol}//${window.location.hostname}:5000${match.mentor.foto}`} alt={match.mentor.nombre} className="w-16 h-16 rounded-xl object-cover" />
+                  <img src={resolveMentorPhotoUrl(match.mentor.foto)} alt={match.mentor.nombre} className="w-16 h-16 rounded-xl object-cover" />
                 ) : (
                   <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-brand-cyan/20 to-brand-purple/20 flex items-center justify-center">
                     <GraduationCap size={28} className="text-brand-cyan" />
