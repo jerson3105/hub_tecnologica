@@ -20,6 +20,22 @@ const initDatabase = async () => {
     await sequelize.sync({ alter: true });
     console.log('Tablas sincronizadas correctamente.');
 
+    // Backfill: crear registros en sesion_programas para sesiones legacy con programa_id directo
+    const { Sesion, SesionPrograma } = require('../models');
+    const legacySesiones = await Sesion.findAll({
+      where: { programa_id: { [require('sequelize').Op.not]: null } }
+    });
+    let backfillCount = 0;
+    for (const ses of legacySesiones) {
+      const [, created] = await SesionPrograma.findOrCreate({
+        where: { sesion_id: ses.id, programa_id: ses.programa_id }
+      });
+      if (created) backfillCount++;
+    }
+    if (backfillCount > 0) {
+      console.log(`Backfill: ${backfillCount} sesiones migradas a sesion_programas.`);
+    }
+
     // Crear usuario admin por defecto si no existe
     const adminExiste = await Usuario.findOne({ where: { email: 'admin@incubadora.com' } });
     if (!adminExiste) {

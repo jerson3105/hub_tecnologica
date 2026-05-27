@@ -19,7 +19,7 @@ const Sesiones = () => {
   const [filtroPrograma, setFiltroPrograma] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
   const [form, setForm] = useState({
-    programa_id: '', titulo: '', descripcion: '', fecha: '', tipo: 'uno_a_uno_programa', enlace_grabacion: ''
+    programa_ids: [], titulo: '', descripcion: '', fecha: '', tipo: 'uno_a_uno_programa', enlace_grabacion: ''
   });
 
   const sesParams = {};
@@ -44,7 +44,7 @@ const Sesiones = () => {
     if (sesion) {
       setEditando(sesion);
       setForm({
-        programa_id: sesion.programa_id || sesion.programa?.id,
+        programa_ids: sesion.programas?.map(p => p.id) || (sesion.programa?.id ? [sesion.programa.id] : []),
         titulo: sesion.titulo,
         descripcion: sesion.descripcion || '',
         fecha: sesion.fecha,
@@ -53,13 +53,17 @@ const Sesiones = () => {
       });
     } else {
       setEditando(null);
-      setForm({ programa_id: programas[0]?.id || '', titulo: '', descripcion: '', fecha: '', tipo: 'uno_a_uno_programa', enlace_grabacion: '' });
+      setForm({ programa_ids: programas.length > 0 ? [programas[0].id] : [], titulo: '', descripcion: '', fecha: '', tipo: 'uno_a_uno_programa', enlace_grabacion: '' });
     }
     setModalOpen(true);
   };
 
   const guardar = async (e) => {
     e.preventDefault();
+    if (!form.programa_ids.length) {
+      toast.error('Selecciona al menos un programa');
+      return;
+    }
     try {
       if (editando) {
         await api.put(`/sesiones/${editando.id}`, form);
@@ -151,7 +155,15 @@ const Sesiones = () => {
                 {sesiones.map((ses) => (
                   <tr key={ses.id} className="border-t border-gray-50 hover:bg-brand-cyan/5 transition-colors">
                     <td className="py-3.5 px-4 font-medium text-brand-dark">{ses.titulo}</td>
-                    <td className="py-3.5 px-4 text-gray-500">{ses.programa?.nombre}</td>
+                    <td className="py-3.5 px-4 text-gray-500">
+                      <div className="flex flex-wrap gap-1">
+                        {(ses.programas?.length > 0 ? ses.programas : (ses.programa ? [ses.programa] : [])).map(p => (
+                          <span key={p.id} className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-purple/10 text-brand-purple whitespace-nowrap">
+                            {p.nombre}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
                     <td className="py-3.5 px-4 text-gray-500">{new Date(ses.fecha).toLocaleDateString('es-ES')}</td>
                     <td className="py-3.5 px-4">
                       <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
@@ -222,11 +234,35 @@ const Sesiones = () => {
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editando ? 'Editar Sesión' : 'Nueva Sesión'} size="lg">
         <form onSubmit={guardar} className="space-y-5">
           <div>
-            <label className={LABEL_CLS}>Programa *</label>
-            <select value={form.programa_id} onChange={(e) => setForm({...form, programa_id: e.target.value})} required className={INPUT_CLS}>
-              <option value="">Seleccionar programa</option>
-              {programas.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </select>
+            <label className={LABEL_CLS}>Programas participantes *</label>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {programas.map(p => {
+                const checked = form.programa_ids.includes(p.id);
+                return (
+                  <label key={p.id} className={`flex items-center gap-2 px-3 py-2 border rounded-xl cursor-pointer transition-all text-sm select-none ${checked ? 'border-brand-cyan bg-brand-cyan/5 text-brand-dark font-medium' : 'border-gray-200 text-gray-600 hover:border-brand-cyan/40'}`}>
+                    <input
+                      type="checkbox"
+                      value={p.id}
+                      checked={checked}
+                      onChange={(e) => {
+                        const id = parseInt(e.target.value);
+                        setForm(prev => ({
+                          ...prev,
+                          programa_ids: e.target.checked
+                            ? [...prev.programa_ids, id]
+                            : prev.programa_ids.filter(pid => pid !== id)
+                        }));
+                      }}
+                      className="w-3.5 h-3.5 accent-brand-cyan"
+                    />
+                    {p.nombre}
+                  </label>
+                );
+              })}
+            </div>
+            {form.programa_ids.length === 0 && (
+              <p className="text-red-400 text-xs mt-1.5">Selecciona al menos un programa</p>
+            )}
           </div>
           <div>
             <label className={LABEL_CLS}>Título *</label>

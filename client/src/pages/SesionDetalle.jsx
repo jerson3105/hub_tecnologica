@@ -89,7 +89,6 @@ const SesionDetalle = () => {
     try {
       await api.post('/nps', {
         sesion_id: parseInt(id),
-        programa_id: sesion.programa?.id,
         puntuacion: npsPuntuacion,
         comentario: npsComentario,
         tipo: sesion.tipo === 'taller' ? 'taller' : 'seguimiento',
@@ -133,7 +132,11 @@ const SesionDetalle = () => {
             </span>
           </div>
           <h1 className="text-2xl font-bold text-white">{sesion.titulo}</h1>
-          <p className="text-white/60 mt-1">{sesion.programa?.nombre} · {new Date(sesion.fecha).toLocaleDateString('es-ES')}</p>
+          <p className="text-white/60 mt-1">
+            {(sesion.programas?.length > 0 ? sesion.programas : (sesion.programa ? [sesion.programa] : []))
+              .map(p => p.nombre).join(' · ')}
+            {' · '}{new Date(sesion.fecha).toLocaleDateString('es-ES')}
+          </p>
         </div>
       </div>
 

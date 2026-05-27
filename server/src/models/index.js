@@ -4,6 +4,7 @@ const Programa = require('./Programa');
 const Emprendimiento = require('./Emprendimiento');
 const Integrante = require('./Integrante');
 const Sesion = require('./Sesion');
+const SesionPrograma = require('./SesionPrograma');
 const Seguimiento = require('./Seguimiento');
 const Archivo = require('./Archivo');
 const ArchivoEmprendimiento = require('./ArchivoEmprendimiento');
@@ -31,9 +32,15 @@ Integrante.belongsTo(Emprendimiento, { foreignKey: 'emprendimiento_id', as: 'emp
 Usuario.hasMany(Integrante, { foreignKey: 'usuario_id', as: 'integrantes' });
 Integrante.belongsTo(Usuario, { foreignKey: 'usuario_id', as: 'usuario' });
 
-// Programa -> Sesiones
+// Programa -> Sesiones (legacy: sesiones con programa_id directo)
 Programa.hasMany(Sesion, { foreignKey: 'programa_id', as: 'sesiones' });
 Sesion.belongsTo(Programa, { foreignKey: 'programa_id', as: 'programa' });
+
+// Sesion <-> Programa many-to-many via sesion_programas (sesiones multi-programa)
+Sesion.belongsToMany(Programa, { through: SesionPrograma, foreignKey: 'sesion_id', otherKey: 'programa_id', as: 'programas' });
+Programa.belongsToMany(Sesion, { through: SesionPrograma, foreignKey: 'programa_id', otherKey: 'sesion_id', as: 'sesionesMixtas' });
+SesionPrograma.belongsTo(Sesion, { foreignKey: 'sesion_id' });
+SesionPrograma.belongsTo(Programa, { foreignKey: 'programa_id' });
 
 // Sesion + Emprendimiento -> Seguimiento
 Sesion.hasMany(Seguimiento, { foreignKey: 'sesion_id', as: 'seguimientos' });
@@ -111,6 +118,7 @@ module.exports = {
   Emprendimiento,
   Integrante,
   Sesion,
+  SesionPrograma,
   Seguimiento,
   Archivo,
   ArchivoEmprendimiento,
