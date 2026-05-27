@@ -8,6 +8,7 @@ SERVICE_NAME="${SERVICE_NAME:-hub-tecnologica}"
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-http://127.0.0.1:5000/api/health}"
 SKIP_CLIENT_BUILD="${SKIP_CLIENT_BUILD:-0}"
 SKIP_SERVER_RESTART="${SKIP_SERVER_RESTART:-0}"
+DEPLOY_STATE_FILE="${DEPLOY_STATE_FILE:-$APP_DIR/.git/deploy-state}"
 
 log() {
   printf '\n[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*"
@@ -92,7 +93,25 @@ else
 fi
 
 current_head="$(git -C "$APP_DIR" rev-parse HEAD)"
-changed_files="$(git -C "$APP_DIR" diff --name-only "$previous_head" "$current_head" || true)"
+baseline_head="$previous_head"
+force_full_deploy=0
+
+if [[ -f "$DEPLOY_STATE_FILE" ]]; then
+  deployed_head="$(tr -d '[:space:]' < "$DEPLOY_STATE_FILE")"
+  if [[ -n "$deployed_head" ]] && git -C "$APP_DIR" cat-file -e "$deployed_head^{commit}" 2>/dev/null; then
+    baseline_head="$deployed_head"
+  else
+    force_full_deploy=1
+  fi
+else
+  force_full_deploy=1
+fi
+
+if [[ "$force_full_deploy" -eq 1 ]]; then
+  log "No se encontro un estado previo de deploy valido. Se forzara una sincronizacion completa"
+fi
+
+changed_files="$(git -C "$APP_DIR" diff --name-only "$baseline_head" "$current_head" || true)"
 
 server_manifest_changed=0
 client_manifest_changed=0
@@ -113,6 +132,13 @@ if needs_match '^server/' "$changed_files"; then
 fi
 
 if needs_match '^client/' "$changed_files"; then
+  client_changed=1
+fi
+
+if [[ "$force_full_deploy" -eq 1 ]]; then
+  server_manifest_changed=1
+  client_manifest_changed=1
+  server_changed=1
   client_changed=1
 fi
 
@@ -172,5 +198,7 @@ if ! wait_for_healthcheck; then
   run_systemctl status --no-pager "$SERVICE_NAME" || true
   exit 1
 fi
+
+printf '%s\n' "$current_head" > "$DEPLOY_STATE_FILE"
 
 log "Deploy completado en $(git -C "$APP_DIR" rev-parse --short HEAD)"
