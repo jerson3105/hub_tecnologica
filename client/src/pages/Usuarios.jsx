@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react';
 import api from '../services/api';
 import Modal from '../components/Modal';
-import { Plus, Edit, KeyRound, Users, UserCheck, UserX, Copy, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Edit, KeyRound, Users, UserCheck, UserX, Copy, Search, ChevronLeft, ChevronRight, FolderKanban, UserPlus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
 import { useInvalidate } from '../hooks/useQueryHooks';
 
 const INPUT_CLS = 'w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-cyan/40 focus:border-brand-cyan outline-none transition-all text-sm';
 const LABEL_CLS = 'block text-sm font-semibold text-brand-dark mb-1.5';
+const FORM_ASIGNACION_VACIO = { emprendimiento_id: '', rol_emprendimiento: '', es_lider: false };
 
 const Usuarios = () => {
   const [filtroRol, setFiltroRol] = useState('');
@@ -29,13 +30,17 @@ const Usuarios = () => {
     queryFn: () => api.get('/auth/usuarios', { params: usrParams }).then(r => r.data)
   });
 
-  const usuarios = data?.data || [];
+  const usuarios = useMemo(() => data?.data || [], [data]);
   const totalPaginas = data?.pagination?.totalPages || 1;
   const totalUsuarios = data?.pagination?.total || 0;
   const [modalOpen, setModalOpen] = useState(false);
   const [modalPassword, setModalPassword] = useState(null);
+  const [usuarioAsignacionesId, setUsuarioAsignacionesId] = useState(null);
   const [editando, setEditando] = useState(null);
   const [passwordGenerado, setPasswordGenerado] = useState('');
+  const [formAsignacion, setFormAsignacion] = useState({ ...FORM_ASIGNACION_VACIO });
+  const [guardandoAsignacion, setGuardandoAsignacion] = useState(false);
+  const [quitandoAsignacionId, setQuitandoAsignacionId] = useState(null);
   const [form, setForm] = useState({
     nombre: '', apellido: '', email: '', telefono: '', rol: 'emprendedor',
     dni: '', edad: '', fecha_nacimiento: '', direccion: '', distrito: '',
@@ -47,6 +52,22 @@ const Usuarios = () => {
     dni: '', edad: '', fecha_nacimiento: '', direccion: '', distrito: '',
     provincia: '', ciudad: '', linkedin: '', genero: '', area: '', cargo: '', dedicacion: ''
   };
+
+  const usuarioAsignaciones = useMemo(
+    () => usuarios.find((usuario) => usuario.id === usuarioAsignacionesId) || null,
+    [usuarios, usuarioAsignacionesId]
+  );
+
+  const { data: emprendimientosActivos = [], isLoading: cargandoEmprendimientosActivos } = useQuery({
+    queryKey: ['emprendimientos', 'activos-asignacion', usuarioAsignacionesId],
+    enabled: !!usuarioAsignacionesId,
+    queryFn: () => api.get('/emprendimientos').then(r => r.data.emprendimientos || [])
+  });
+
+  const emprendimientosDisponibles = useMemo(() => {
+    const idsAsignados = new Set((usuarioAsignaciones?.integrantes || []).map((integrante) => integrante.emprendimiento?.id).filter(Boolean));
+    return emprendimientosActivos.filter((emprendimiento) => emprendimiento.estado !== 'retirado' && !idsAsignados.has(emprendimiento.id));
+  }, [emprendimientosActivos, usuarioAsignaciones]);
 
   const abrirModal = (usuario = null) => {
     if (usuario) {
@@ -101,7 +122,7 @@ const Usuarios = () => {
       const res = await api.post(`/auth/usuarios/${id}/resetear-password`);
       setModalPassword(res.data.passwordTemporal);
       toast.success('Contraseña reseteada');
-    } catch (error) {
+    } catch {
       toast.error('Error al resetear contraseña');
     }
   };
@@ -111,7 +132,7 @@ const Usuarios = () => {
       await api.put(`/auth/usuarios/${usuario.id}`, { activo: !usuario.activo });
       toast.success(usuario.activo ? 'Usuario desactivado' : 'Usuario activado');
       invalidate('usuarios');
-    } catch (error) {
+    } catch {
       toast.error('Error al actualizar estado');
     }
   };
@@ -119,6 +140,70 @@ const Usuarios = () => {
   const copiarAlPortapapeles = (texto) => {
     navigator.clipboard.writeText(texto);
     toast.success('Copiado al portapapeles');
+  };
+
+  const abrirModalAsignaciones = (usuario) => {
+    if (usuario.rol !== 'emprendedor') {
+      return;
+    }
+
+    setUsuarioAsignacionesId(usuario.id);
+    setFormAsignacion({ ...FORM_ASIGNACION_VACIO });
+  };
+
+  const cerrarModalAsignaciones = () => {
+    setUsuarioAsignacionesId(null);
+    setFormAsignacion({ ...FORM_ASIGNACION_VACIO });
+    setQuitandoAsignacionId(null);
+  };
+
+  const asignarEmprendimiento = async (e) => {
+    e.preventDefault();
+    if (!usuarioAsignaciones) return;
+
+    if (!formAsignacion.emprendimiento_id) {
+      toast.error('Selecciona un emprendimiento para asignar');
+      return;
+    }
+
+    setGuardandoAsignacion(true);
+    try {
+      await api.post(`/emprendimientos/${formAsignacion.emprendimiento_id}/integrantes`, {
+        usuario_id: usuarioAsignaciones.id,
+        rol_emprendimiento: formAsignacion.rol_emprendimiento,
+        es_lider: formAsignacion.es_lider
+      });
+      toast.success('Emprendimiento asignado correctamente');
+      setFormAsignacion({ ...FORM_ASIGNACION_VACIO });
+      invalidate('usuarios', 'emprendimientos');
+    } catch (error) {
+      toast.error(error.response?.data?.mensaje || 'Error al asignar emprendimiento');
+    } finally {
+      setGuardandoAsignacion(false);
+    }
+  };
+
+  const quitarAsignacion = async (integrante) => {
+    const emprendimientoId = integrante.emprendimiento?.id;
+    if (!emprendimientoId) {
+      toast.error('No se pudo identificar el emprendimiento de esta asignación');
+      return;
+    }
+
+    if (!window.confirm(`¿Quitar esta asignación de ${integrante.emprendimiento?.nombre}?`)) {
+      return;
+    }
+
+    setQuitandoAsignacionId(integrante.id);
+    try {
+      await api.delete(`/emprendimientos/${emprendimientoId}/integrantes/${integrante.id}`);
+      toast.success('Asignación eliminada');
+      invalidate('usuarios', 'emprendimientos');
+    } catch (error) {
+      toast.error(error.response?.data?.mensaje || 'Error al quitar la asignación');
+    } finally {
+      setQuitandoAsignacionId(null);
+    }
   };
 
   const handleBuscar = (e) => {
@@ -230,6 +315,11 @@ const Usuarios = () => {
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex justify-end gap-1">
+                        {usr.rol === 'emprendedor' && (
+                          <button onClick={() => abrirModalAsignaciones(usr)} className="p-2 text-brand-cyan hover:bg-brand-cyan/10 rounded-xl transition-colors" title="Gestionar asignaciones">
+                            <FolderKanban size={15} />
+                          </button>
+                        )}
                         <button onClick={() => abrirModal(usr)} className="p-2 text-brand-purple hover:bg-brand-purple/10 rounded-xl transition-colors" title="Editar"><Edit size={15} /></button>
                         <button onClick={() => resetearPassword(usr.id)} className="p-2 text-brand-dark hover:bg-brand-cyan/10 rounded-xl transition-colors" title="Resetear contraseña"><KeyRound size={15} /></button>
                         <button onClick={() => toggleActivo(usr)} className={`p-2 rounded-xl transition-colors ${usr.activo ? 'text-red-400 hover:bg-red-50' : 'text-brand-green hover:bg-brand-green/10'}`} title={usr.activo ? 'Desactivar' : 'Activar'}>
@@ -401,6 +491,123 @@ const Usuarios = () => {
           </div>
           <p className="text-xs text-gray-400">Comparte esta contraseña con el usuario.</p>
           <button onClick={() => setModalPassword(null)} className="px-6 py-2.5 text-sm bg-brand-dark text-white rounded-xl hover:bg-brand-dark/90 font-medium shadow-sm transition-all hover:shadow-md">Cerrar</button>
+        </div>
+      </Modal>
+
+      <Modal isOpen={!!usuarioAsignaciones} onClose={cerrarModalAsignaciones} title={`Asignaciones de ${usuarioAsignaciones?.apellido || ''} ${usuarioAsignaciones?.nombre || ''}`.trim()} size="lg">
+        <div className="space-y-5">
+          <div className="rounded-2xl border border-brand-cyan/15 bg-brand-cyan/5 p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-brand-cyan">Usuario emprendedor</p>
+            <p className="mt-1 text-sm font-semibold text-brand-dark">{usuarioAsignaciones?.apellido} {usuarioAsignaciones?.nombre}</p>
+            <p className="text-xs text-gray-500">{usuarioAsignaciones?.email}</p>
+          </div>
+
+          <form onSubmit={asignarEmprendimiento} className="space-y-4 rounded-2xl border border-gray-100 p-4">
+            <div className="flex items-center gap-2 text-sm font-semibold text-brand-dark">
+              <UserPlus size={16} className="text-brand-cyan" />
+              Asignar a un emprendimiento
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className={LABEL_CLS}>Emprendimiento</label>
+                <select
+                  value={formAsignacion.emprendimiento_id}
+                  onChange={(e) => setFormAsignacion(prev => ({ ...prev, emprendimiento_id: e.target.value }))}
+                  className={INPUT_CLS}
+                  disabled={cargandoEmprendimientosActivos || guardandoAsignacion}
+                >
+                  <option value="">Seleccionar emprendimiento</option>
+                  {emprendimientosDisponibles.map((emprendimiento) => (
+                    <option key={emprendimiento.id} value={emprendimiento.id}>
+                      {emprendimiento.nombre}{emprendimiento.programa?.nombre ? ` · ${emprendimiento.programa.nombre}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={LABEL_CLS}>Rol en el emprendimiento</label>
+                <input
+                  type="text"
+                  value={formAsignacion.rol_emprendimiento}
+                  onChange={(e) => setFormAsignacion(prev => ({ ...prev, rol_emprendimiento: e.target.value }))}
+                  placeholder="Ej: CEO, Co-fundador, Marketing"
+                  className={INPUT_CLS}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-brand-purple/10 bg-brand-purple/5 p-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formAsignacion.es_lider}
+                  onChange={(e) => setFormAsignacion(prev => ({ ...prev, es_lider: e.target.checked }))}
+                  className="rounded border-gray-300 text-brand-purple focus:ring-brand-purple"
+                />
+                <span className="text-sm font-semibold text-brand-dark">Marcar como líder del emprendimiento</span>
+              </label>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={guardandoAsignacion || cargandoEmprendimientosActivos || emprendimientosDisponibles.length === 0}
+                className="px-5 py-2.5 text-sm bg-brand-dark text-white rounded-xl hover:bg-brand-dark/90 disabled:opacity-50 font-medium shadow-sm transition-all hover:shadow-md"
+              >
+                {guardandoAsignacion ? 'Asignando...' : 'Asignar emprendimiento'}
+              </button>
+            </div>
+          </form>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-semibold text-brand-dark">
+                <FolderKanban size={16} className="text-brand-purple" />
+                Asignaciones actuales
+              </div>
+              <span className="text-xs text-gray-400">{usuarioAsignaciones?.integrantes?.length || 0} asignación(es)</span>
+            </div>
+
+            {usuarioAsignaciones?.integrantes?.length > 0 ? (
+              <div className="space-y-2">
+                {usuarioAsignaciones.integrantes.map((integrante) => (
+                  <div key={integrante.id} className="rounded-2xl border border-gray-100 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-brand-dark">{integrante.emprendimiento?.nombre || 'Sin emprendimiento'}</p>
+                        <p className="text-xs text-gray-400 mt-1">{integrante.emprendimiento?.programa?.nombre || 'Sin programa asociado'}</p>
+                        {(integrante.rol_emprendimiento || integrante.es_lider) && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {integrante.rol_emprendimiento && (
+                              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-cyan/10 text-brand-cyan">{integrante.rol_emprendimiento}</span>
+                            )}
+                            {integrante.es_lider && (
+                              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-purple/10 text-brand-purple">Líder</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => quitarAsignacion(integrante)}
+                        disabled={quitandoAsignacionId === integrante.id}
+                        className="p-2 text-red-400 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-50"
+                        title="Quitar asignación"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-gray-200 p-6 text-center">
+                <p className="text-sm font-medium text-gray-500">Este usuario todavía no está asignado a ningún emprendimiento</p>
+                <p className="text-xs text-gray-400 mt-1">Usa el formulario superior para crear la primera asignación.</p>
+              </div>
+            )}
+          </div>
         </div>
       </Modal>
     </div>

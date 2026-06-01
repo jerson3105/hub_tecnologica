@@ -159,6 +159,7 @@ const agregarIntegrante = async (req, res) => {
   try {
     const { id } = req.params;
     const {
+      usuario_id,
       nombre, apellido, dni, edad, fecha_nacimiento, telefono, email,
       direccion, distrito, provincia, ciudad, linkedin, genero, area, cargo, dedicacion,
       rol_emprendimiento, es_lider
@@ -179,44 +180,58 @@ const agregarIntegrante = async (req, res) => {
       }
     }
 
-    if (!nombre || !apellido || !email) {
-      return res.status(400).json({ mensaje: 'Nombre, apellido y correo son requeridos' });
-    }
+    let usuario;
 
-    // Verificar si el email ya existe
-    let usuario = await Usuario.findOne({ where: { email } });
-
-    if (usuario) {
-      // Si el usuario ya existe, verificar que no sea ya integrante
-      const existente = await Integrante.findOne({
-        where: { emprendimiento_id: id, usuario_id: usuario.id }
-      });
-      if (existente) {
-        return res.status(400).json({ mensaje: 'Este usuario ya es integrante de este emprendimiento' });
+    if (usuario_id) {
+      usuario = await Usuario.findByPk(usuario_id);
+      if (!usuario) {
+        return res.status(404).json({ mensaje: 'Usuario no encontrado' });
       }
     } else {
-      // Crear nuevo usuario con todos los campos
-      const passwordGenerado = generarPasswordAleatorio();
-      usuario = await Usuario.create({
-        nombre,
-        apellido,
-        email,
-        password: passwordGenerado,
-        rol: 'emprendedor',
-        telefono,
-        dni,
-        edad,
-        fecha_nacimiento,
-        direccion,
-        distrito,
-        provincia,
-        ciudad,
-        linkedin,
-        genero,
-        area,
-        cargo,
-        dedicacion
-      });
+      if (!nombre || !apellido || !email) {
+        return res.status(400).json({ mensaje: 'Nombre, apellido y correo son requeridos' });
+      }
+
+      usuario = await Usuario.findOne({ where: { email } });
+
+      if (!usuario) {
+        const passwordGenerado = generarPasswordAleatorio();
+        usuario = await Usuario.create({
+          nombre,
+          apellido,
+          email,
+          password: passwordGenerado,
+          rol: 'emprendedor',
+          telefono,
+          dni,
+          edad,
+          fecha_nacimiento,
+          direccion,
+          distrito,
+          provincia,
+          ciudad,
+          linkedin,
+          genero,
+          area,
+          cargo,
+          dedicacion
+        });
+      }
+    }
+
+    if (!usuario.activo) {
+      return res.status(400).json({ mensaje: 'No se puede asignar un usuario inactivo' });
+    }
+
+    if (usuario.rol !== 'emprendedor') {
+      return res.status(400).json({ mensaje: 'Solo los usuarios emprendedores pueden asignarse a un emprendimiento' });
+    }
+
+    const existente = await Integrante.findOne({
+      where: { emprendimiento_id: id, usuario_id: usuario.id }
+    });
+    if (existente) {
+      return res.status(400).json({ mensaje: 'Este usuario ya es integrante de este emprendimiento' });
     }
 
     const integrante = await Integrante.create({
@@ -294,7 +309,7 @@ const buscarUsuariosParaIntegrante = async (req, res) => {
 
     const usuarios = await Usuario.findAll({
       where,
-      attributes: ['id', 'nombre', 'apellido', 'email'],
+      attributes: ['id', 'nombre', 'apellido', 'email', 'telefono', 'cargo'],
       order: [['nombre', 'ASC']]
     });
 

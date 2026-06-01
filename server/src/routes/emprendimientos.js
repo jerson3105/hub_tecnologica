@@ -25,9 +25,19 @@ router.delete('/:id', esAdmin, emprendimientoController.eliminar);
 router.get('/:id/usuarios-disponibles', emprendimientoController.buscarUsuariosParaIntegrante);
 
 router.post('/:id/integrantes', [
-  body('nombre').notEmpty().withMessage('El nombre es requerido'),
-  body('apellido').notEmpty().withMessage('El apellido es requerido'),
-  body('email').isEmail().withMessage('Email inválido')
+  body('usuario_id').optional().isInt().withMessage('El usuario seleccionado es inválido'),
+  body('email').optional({ values: 'falsy' }).isEmail().withMessage('Email inválido'),
+  body().custom((_, { req }) => {
+    if (req.body.usuario_id) {
+      return true;
+    }
+
+    if (!req.body.nombre || !req.body.apellido || !req.body.email) {
+      throw new Error('Nombre, apellido y correo son requeridos');
+    }
+
+    return true;
+  })
 ], validate, emprendimientoController.agregarIntegrante);
 
 router.delete('/:id/integrantes/:integranteId', emprendimientoController.eliminarIntegrante);

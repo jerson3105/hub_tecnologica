@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import Modal from '../components/Modal';
-import { Plus, Edit, Trash2, Eye, Rocket, UserPlus, X, ChevronRight, Users, FolderKanban } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Rocket, UserPlus, X, Users, FolderKanban, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useEmprendimientos, useProgramas, useInvalidate } from '../hooks/useQueryHooks';
 import { UBIGEO_PERU } from '../data/ubigeo';
@@ -40,6 +40,11 @@ const Emprendimientos = () => {
   const [form, setForm] = useState({ nombre: '', descripcion: '', sector: '', programa_id: '', estado: 'activo' });
   const [formIntegrante, setFormIntegrante] = useState({ ...formIntegranteVacio });
   const [agregando, setAgregando] = useState(false);
+  const [modoIntegrante, setModoIntegrante] = useState('existente');
+  const [usuariosDisponibles, setUsuariosDisponibles] = useState([]);
+  const [cargandoUsuariosDisponibles, setCargandoUsuariosDisponibles] = useState(false);
+  const [busquedaUsuario, setBusquedaUsuario] = useState('');
+  const [usuarioSeleccionadoId, setUsuarioSeleccionadoId] = useState('');
 
   const abrirModal = (emp = null) => {
     if (emp) {
@@ -75,33 +80,79 @@ const Emprendimientos = () => {
       await api.delete(`/emprendimientos/${id}`);
       toast.success('Emprendimiento desactivado');
       invalidate('emprendimientos');
-    } catch (error) {
+    } catch {
       toast.error('Error al eliminar');
     }
   };
 
-  const abrirModalIntegrante = (emp) => {
+  const cerrarModalIntegrante = () => {
+    setModalIntegrante(false);
+    setEmpSeleccionado(null);
+    setFormIntegrante({ ...formIntegranteVacio });
+    setModoIntegrante('existente');
+    setUsuariosDisponibles([]);
+    setBusquedaUsuario('');
+    setUsuarioSeleccionadoId('');
+  };
+
+  const cargarUsuariosDisponibles = async (emprendimientoId) => {
+    setCargandoUsuariosDisponibles(true);
+    try {
+      const res = await api.get(`/emprendimientos/${emprendimientoId}/usuarios-disponibles`);
+      const disponibles = res.data.usuarios || [];
+      setUsuariosDisponibles(disponibles);
+      if (disponibles.length === 0) {
+        setModoIntegrante('nuevo');
+      }
+    } catch (error) {
+      setUsuariosDisponibles([]);
+      setModoIntegrante('nuevo');
+      toast.error(error.response?.data?.mensaje || 'No se pudo cargar la lista de usuarios');
+    } finally {
+      setCargandoUsuariosDisponibles(false);
+    }
+  };
+
+  const abrirModalIntegrante = async (emp) => {
     setEmpSeleccionado(emp);
     setFormIntegrante({ ...formIntegranteVacio });
+    setModoIntegrante('existente');
+    setUsuariosDisponibles([]);
+    setBusquedaUsuario('');
+    setUsuarioSeleccionadoId('');
     setModalIntegrante(true);
+    await cargarUsuariosDisponibles(emp.id);
   };
 
   const agregarIntegrante = async (e) => {
     e.preventDefault();
-    if (!formIntegrante.nombre || !formIntegrante.apellido || !formIntegrante.email) {
+    if (modoIntegrante === 'existente' && !usuarioSeleccionadoId) {
+      toast.error('Selecciona un usuario emprendedor para asignarlo');
+      return;
+    }
+
+    if (modoIntegrante === 'nuevo' && (!formIntegrante.nombre || !formIntegrante.apellido || !formIntegrante.email)) {
       toast.error('Nombre, apellido y correo son requeridos');
       return;
     }
+
     setAgregando(true);
     try {
-      const payload = {
-        ...formIntegrante,
-        ciudad: formIntegrante.departamento || ''
-      };
+      const payload = modoIntegrante === 'existente'
+        ? {
+            usuario_id: usuarioSeleccionadoId,
+            rol_emprendimiento: formIntegrante.rol_emprendimiento,
+            es_lider: formIntegrante.es_lider
+          }
+        : {
+            ...formIntegrante,
+            ciudad: formIntegrante.departamento || ''
+          };
+
       await api.post(`/emprendimientos/${empSeleccionado.id}/integrantes`, payload);
-      toast.success('Integrante agregado exitosamente');
-      setModalIntegrante(false);
-      invalidate('emprendimientos');
+      toast.success(modoIntegrante === 'existente' ? 'Usuario asignado exitosamente' : 'Integrante agregado exitosamente');
+      cerrarModalIntegrante();
+      invalidate('emprendimientos', 'usuarios');
     } catch (error) {
       toast.error(error.response?.data?.mensaje || 'Error al agregar integrante');
     } finally {
@@ -117,6 +168,14 @@ const Emprendimientos = () => {
   const provinciasDisponibles = depSeleccionado?.provincias || [];
   const provSeleccionada = provinciasDisponibles.find(p => p.nombre === formIntegrante.provincia);
   const distritosDisponibles = provSeleccionada?.distritos || [];
+  const busquedaUsuarioNormalizada = busquedaUsuario.trim().toLowerCase();
+  const usuariosDisponiblesFiltrados = usuariosDisponibles.filter((usuario) => {
+    if (!busquedaUsuarioNormalizada) return true;
+
+    const nombreCompleto = `${usuario.nombre} ${usuario.apellido}`.toLowerCase();
+    return nombreCompleto.includes(busquedaUsuarioNormalizada) || usuario.email.toLowerCase().includes(busquedaUsuarioNormalizada);
+  });
+  const usuarioSeleccionado = usuariosDisponibles.find((usuario) => String(usuario.id) === String(usuarioSeleccionadoId));
 
   const eliminarIntegrante = async (empId, integranteId) => {
     if (!confirm('¿Eliminar este integrante?')) return;
@@ -124,7 +183,7 @@ const Emprendimientos = () => {
       await api.delete(`/emprendimientos/${empId}/integrantes/${integranteId}`);
       toast.success('Integrante eliminado');
       invalidate('emprendimientos');
-    } catch (error) {
+    } catch {
       toast.error('Error al eliminar integrante');
     }
   };
@@ -318,131 +377,228 @@ const Emprendimientos = () => {
       </Modal>
 
       {/* Modal Integrante */}
-      <Modal isOpen={modalIntegrante} onClose={() => setModalIntegrante(false)} title={`Agregar Integrante a ${empSeleccionado?.nombre}`} size="xl">
+      <Modal isOpen={modalIntegrante} onClose={cerrarModalIntegrante} title={`Agregar Integrante a ${empSeleccionado?.nombre}`} size="xl">
         <form onSubmit={agregarIntegrante} className="space-y-5">
-          <p className="text-xs text-brand-dark/60 bg-brand-cyan/5 border border-brand-cyan/10 p-3 rounded-xl">Ingresa los datos del nuevo integrante. Si el correo ya existe, se vinculará al usuario existente.</p>
-
-          <p className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-widest flex items-center gap-1.5"><Users size={12} /> Datos Personales</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={LABEL_CLS}>Nombres *</label>
-              <input type="text" value={formIntegrante.nombre} onChange={(e) => setIntField('nombre', e.target.value)} required className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Apellidos *</label>
-              <input type="text" value={formIntegrante.apellido} onChange={(e) => setIntField('apellido', e.target.value)} required className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>DNI</label>
-              <input type="text" value={formIntegrante.dni} onChange={(e) => setIntField('dni', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Edad</label>
-              <input type="number" value={formIntegrante.edad} onChange={(e) => setIntField('edad', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Fecha de Nacimiento</label>
-              <input type="date" value={formIntegrante.fecha_nacimiento} onChange={(e) => setIntField('fecha_nacimiento', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Género</label>
-              <select value={formIntegrante.genero} onChange={(e) => setIntField('genero', e.target.value)} className={INPUT_CLS}>
-                <option value="">Seleccionar</option>
-                <option value="masculino">Hombre</option>
-                <option value="femenino">Mujer</option>
-              </select>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-2xl bg-gray-50 p-1.5">
+            <button
+              type="button"
+              onClick={() => setModoIntegrante('existente')}
+              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${
+                modoIntegrante === 'existente' ? 'bg-white text-brand-dark shadow-sm' : 'text-gray-500 hover:text-brand-dark'
+              }`}
+            >
+              Asignar usuario existente
+            </button>
+            <button
+              type="button"
+              onClick={() => setModoIntegrante('nuevo')}
+              className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${
+                modoIntegrante === 'nuevo' ? 'bg-white text-brand-dark shadow-sm' : 'text-gray-500 hover:text-brand-dark'
+              }`}
+            >
+              Crear y asignar nuevo usuario
+            </button>
           </div>
 
-          <p className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-widest flex items-center gap-1.5 pt-2"><span className="text-brand-cyan">●</span> Contacto y Ubicación</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={LABEL_CLS}>Correo *</label>
-              <input type="email" value={formIntegrante.email} onChange={(e) => setIntField('email', e.target.value)} required className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Celular</label>
-              <input type="text" value={formIntegrante.telefono} onChange={(e) => setIntField('telefono', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className={LABEL_CLS}>Dirección</label>
-              <input type="text" value={formIntegrante.direccion} onChange={(e) => setIntField('direccion', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Departamento</label>
-              <select
-                value={formIntegrante.departamento}
-                onChange={(e) => setFormIntegrante(prev => ({
-                  ...prev,
-                  departamento: e.target.value,
-                  provincia: '',
-                  distrito: ''
-                }))}
-                className={INPUT_CLS}
-              >
-                <option value="">Seleccionar departamento</option>
-                {UBIGEO_PERU.map(dep => (
-                  <option key={dep.nombre} value={dep.nombre}>{dep.nombre}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Provincia</label>
-              <select
-                value={formIntegrante.provincia}
-                onChange={(e) => setFormIntegrante(prev => ({
-                  ...prev,
-                  provincia: e.target.value,
-                  distrito: ''
-                }))}
-                className={INPUT_CLS}
-                disabled={!formIntegrante.departamento}
-              >
-                <option value="">Seleccionar provincia</option>
-                {provinciasDisponibles.map(prov => (
-                  <option key={prov.nombre} value={prov.nombre}>{prov.nombre}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Distrito</label>
-              <select
-                value={formIntegrante.distrito}
-                onChange={(e) => setIntField('distrito', e.target.value)}
-                className={INPUT_CLS}
-                disabled={!formIntegrante.provincia}
-              >
-                <option value="">Seleccionar distrito</option>
-                {distritosDisponibles.map(dist => (
-                  <option key={dist} value={dist}>{dist}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={LABEL_CLS}>LinkedIn</label>
-              <input type="text" value={formIntegrante.linkedin} onChange={(e) => setIntField('linkedin', e.target.value)} placeholder="https://linkedin.com/in/..." className={INPUT_CLS} />
-            </div>
-          </div>
+          {modoIntegrante === 'existente' ? (
+            <div className="space-y-5">
+              <p className="text-xs text-brand-dark/60 bg-brand-cyan/5 border border-brand-cyan/10 p-3 rounded-xl">Selecciona un usuario emprendedor ya creado para vincularlo a este emprendimiento. Los administradores no aparecen en esta lista.</p>
 
-          <p className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-widest flex items-center gap-1.5 pt-2"><span className="text-brand-purple">●</span> Rol en el Equipo</p>
+              <div>
+                <label className={LABEL_CLS}>Buscar usuario</label>
+                <div className="relative">
+                  <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300" />
+                  <input
+                    type="text"
+                    value={busquedaUsuario}
+                    onChange={(e) => setBusquedaUsuario(e.target.value)}
+                    placeholder="Buscar por nombre o correo..."
+                    className={`${INPUT_CLS} pl-10`}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={LABEL_CLS}>Usuarios disponibles</label>
+                <div className="max-h-64 space-y-2 overflow-y-auto rounded-2xl border border-gray-100 p-2">
+                  {cargandoUsuariosDisponibles ? (
+                    <div className="flex items-center justify-center py-10 text-sm text-gray-400">
+                      <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-brand-cyan"></div>
+                    </div>
+                  ) : usuariosDisponiblesFiltrados.length > 0 ? (
+                    usuariosDisponiblesFiltrados.map((usuario) => {
+                      const seleccionado = String(usuario.id) === String(usuarioSeleccionadoId);
+                      return (
+                        <button
+                          key={usuario.id}
+                          type="button"
+                          onClick={() => setUsuarioSeleccionadoId(String(usuario.id))}
+                          className={`w-full rounded-xl border px-4 py-3 text-left transition-all ${
+                            seleccionado
+                              ? 'border-brand-cyan bg-brand-cyan/5 shadow-sm'
+                              : 'border-gray-100 hover:border-brand-cyan/20 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="font-medium text-brand-dark">{usuario.nombre} {usuario.apellido}</p>
+                              <p className="text-sm text-gray-400">{usuario.email}</p>
+                              {(usuario.telefono || usuario.cargo) && (
+                                <p className="mt-1 text-xs text-gray-400">
+                                  {[usuario.telefono, usuario.cargo].filter(Boolean).join(' · ')}
+                                </p>
+                              )}
+                            </div>
+                            {seleccionado && <span className="rounded-full bg-brand-cyan px-2 py-0.5 text-[10px] font-semibold text-white">Seleccionado</span>}
+                          </div>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="py-8 text-center text-sm text-gray-400">
+                      {usuariosDisponibles.length === 0 ? 'No hay usuarios emprendedores disponibles para este emprendimiento.' : 'No se encontraron usuarios con esa búsqueda.'}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {usuarioSeleccionado && (
+                <div className="rounded-xl border border-brand-cyan/15 bg-brand-cyan/5 px-4 py-3 text-sm text-brand-dark">
+                  Se asignará a <span className="font-semibold">{usuarioSeleccionado.nombre} {usuarioSeleccionado.apellido}</span> usando su perfil actual.
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-brand-dark/60 bg-brand-cyan/5 border border-brand-cyan/10 p-3 rounded-xl">Ingresa los datos del nuevo integrante. Si el correo ya existe y pertenece a un emprendedor, se vinculará automáticamente.</p>
+
+              <p className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-widest flex items-center gap-1.5"><Users size={12} /> Datos Personales</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={LABEL_CLS}>Nombres *</label>
+                  <input type="text" value={formIntegrante.nombre} onChange={(e) => setIntField('nombre', e.target.value)} required={modoIntegrante === 'nuevo'} className={INPUT_CLS} />
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Apellidos *</label>
+                  <input type="text" value={formIntegrante.apellido} onChange={(e) => setIntField('apellido', e.target.value)} required={modoIntegrante === 'nuevo'} className={INPUT_CLS} />
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>DNI</label>
+                  <input type="text" value={formIntegrante.dni} onChange={(e) => setIntField('dni', e.target.value)} className={INPUT_CLS} />
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Edad</label>
+                  <input type="number" value={formIntegrante.edad} onChange={(e) => setIntField('edad', e.target.value)} className={INPUT_CLS} />
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Fecha de Nacimiento</label>
+                  <input type="date" value={formIntegrante.fecha_nacimiento} onChange={(e) => setIntField('fecha_nacimiento', e.target.value)} className={INPUT_CLS} />
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Género</label>
+                  <select value={formIntegrante.genero} onChange={(e) => setIntField('genero', e.target.value)} className={INPUT_CLS}>
+                    <option value="">Seleccionar</option>
+                    <option value="masculino">Hombre</option>
+                    <option value="femenino">Mujer</option>
+                  </select>
+                </div>
+              </div>
+
+              <p className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-widest flex items-center gap-1.5 pt-2"><span className="text-brand-cyan">●</span> Contacto y Ubicación</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={LABEL_CLS}>Correo *</label>
+                  <input type="email" value={formIntegrante.email} onChange={(e) => setIntField('email', e.target.value)} required={modoIntegrante === 'nuevo'} className={INPUT_CLS} />
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Celular</label>
+                  <input type="text" value={formIntegrante.telefono} onChange={(e) => setIntField('telefono', e.target.value)} className={INPUT_CLS} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={LABEL_CLS}>Dirección</label>
+                  <input type="text" value={formIntegrante.direccion} onChange={(e) => setIntField('direccion', e.target.value)} className={INPUT_CLS} />
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Departamento</label>
+                  <select
+                    value={formIntegrante.departamento}
+                    onChange={(e) => setFormIntegrante(prev => ({
+                      ...prev,
+                      departamento: e.target.value,
+                      provincia: '',
+                      distrito: ''
+                    }))}
+                    className={INPUT_CLS}
+                  >
+                    <option value="">Seleccionar departamento</option>
+                    {UBIGEO_PERU.map(dep => (
+                      <option key={dep.nombre} value={dep.nombre}>{dep.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Provincia</label>
+                  <select
+                    value={formIntegrante.provincia}
+                    onChange={(e) => setFormIntegrante(prev => ({
+                      ...prev,
+                      provincia: e.target.value,
+                      distrito: ''
+                    }))}
+                    className={INPUT_CLS}
+                    disabled={!formIntegrante.departamento}
+                  >
+                    <option value="">Seleccionar provincia</option>
+                    {provinciasDisponibles.map(prov => (
+                      <option key={prov.nombre} value={prov.nombre}>{prov.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Distrito</label>
+                  <select
+                    value={formIntegrante.distrito}
+                    onChange={(e) => setIntField('distrito', e.target.value)}
+                    className={INPUT_CLS}
+                    disabled={!formIntegrante.provincia}
+                  >
+                    <option value="">Seleccionar distrito</option>
+                    {distritosDisponibles.map(dist => (
+                      <option key={dist} value={dist}>{dist}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>LinkedIn</label>
+                  <input type="text" value={formIntegrante.linkedin} onChange={(e) => setIntField('linkedin', e.target.value)} placeholder="https://linkedin.com/in/..." className={INPUT_CLS} />
+                </div>
+              </div>
+
+              <p className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-widest flex items-center gap-1.5 pt-2"><span className="text-brand-purple">●</span> Perfil del Usuario</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={LABEL_CLS}>Área</label>
+                  <select value={formIntegrante.area} onChange={(e) => setIntField('area', e.target.value)} className={INPUT_CLS}>
+                    <option value="">Seleccionar área</option>
+                    {AREAS_OPCIONES.map(area => (
+                      <option key={area} value={area}>{area}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>Cargo</label>
+                  <input type="text" value={formIntegrante.cargo} onChange={(e) => setIntField('cargo', e.target.value)} className={INPUT_CLS} />
+                </div>
+                <div>
+                  <label className={LABEL_CLS}>% de Dedicación</label>
+                  <input type="number" value={formIntegrante.dedicacion} onChange={(e) => setIntField('dedicacion', e.target.value)} min="0" max="100" placeholder="0-100" className={INPUT_CLS} />
+                </div>
+              </div>
+            </>
+          )}
+
+          <p className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-widest flex items-center gap-1.5 pt-2"><span className="text-brand-purple">●</span> Rol en el Emprendimiento</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={LABEL_CLS}>Área</label>
-              <select value={formIntegrante.area} onChange={(e) => setIntField('area', e.target.value)} className={INPUT_CLS}>
-                <option value="">Seleccionar área</option>
-                {AREAS_OPCIONES.map(area => (
-                  <option key={area} value={area}>{area}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Cargo</label>
-              <input type="text" value={formIntegrante.cargo} onChange={(e) => setIntField('cargo', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>% de Dedicación</label>
-              <input type="number" value={formIntegrante.dedicacion} onChange={(e) => setIntField('dedicacion', e.target.value)} min="0" max="100" placeholder="0-100" className={INPUT_CLS} />
-            </div>
             <div>
               <label className={LABEL_CLS}>Rol en el emprendimiento</label>
               <input type="text" value={formIntegrante.rol_emprendimiento} onChange={(e) => setIntField('rol_emprendimiento', e.target.value)} placeholder="Ej: Co-fundador, Desarrollador..." className={INPUT_CLS} />
@@ -458,10 +614,10 @@ const Emprendimientos = () => {
           </div>
 
           <div className="flex justify-end gap-3 pt-5 border-t border-gray-100">
-            <button type="button" onClick={() => setModalIntegrante(false)} className="px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-xl font-medium transition-colors">Cancelar</button>
+            <button type="button" onClick={cerrarModalIntegrante} className="px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-xl font-medium transition-colors">Cancelar</button>
             <button type="submit" disabled={agregando} className="px-6 py-2.5 text-sm bg-brand-dark text-white rounded-xl hover:bg-brand-dark/90 disabled:opacity-50 flex items-center gap-2 font-medium shadow-sm transition-all hover:shadow-md">
               {agregando ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <UserPlus size={16} />}
-              {agregando ? 'Agregando...' : 'Agregar Integrante'}
+              {agregando ? 'Guardando...' : modoIntegrante === 'existente' ? 'Asignar Usuario' : 'Agregar Integrante'}
             </button>
           </div>
         </form>

@@ -221,6 +221,13 @@ const actualizarUsuario = async (req, res) => {
       return res.status(404).json({ mensaje: 'Usuario no encontrado' });
     }
 
+    if (rol === 'admin' && usuario.rol !== 'admin') {
+      const asignacionesActivas = await Integrante.count({ where: { usuario_id: usuario.id } });
+      if (asignacionesActivas > 0) {
+        return res.status(400).json({ mensaje: 'No se puede convertir en administrador a un usuario asignado a emprendimientos' });
+      }
+    }
+
     if (email && email !== usuario.email) {
       const existente = await Usuario.findOne({ where: { email } });
       if (existente) {
