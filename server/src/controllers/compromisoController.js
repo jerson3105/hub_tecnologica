@@ -1,4 +1,4 @@
-const { Compromiso, Seguimiento, Sesion, Emprendimiento, Programa } = require('../models');
+const { Compromiso, Seguimiento, Sesion, Emprendimiento, Programa, Archivo } = require('../models');
 const logger = require('../utils/logger');
 
 const obtenerPorSeguimiento = async (req, res) => {
@@ -148,7 +148,24 @@ const timelineEmprendimiento = async (req, res) => {
           model: Sesion,
           as: 'sesion',
           attributes: ['id', 'titulo', 'fecha', 'tipo', 'enlace_grabacion'],
-          include: [{ model: Programa, as: 'programa', attributes: ['id', 'nombre'] }]
+          include: [
+            { model: Programa, as: 'programa', attributes: ['id', 'nombre'] },
+            {
+              model: Archivo,
+              as: 'archivos',
+              required: false,
+              attributes: ['id', 'tipo', 'nombre_original', 'url', 'categoria', 'created_at'],
+              include: [
+                {
+                  model: Emprendimiento,
+                  as: 'emprendimientos',
+                  attributes: ['id', 'nombre'],
+                  through: { attributes: [] },
+                  required: false
+                }
+              ]
+            }
+          ]
         },
         {
           model: Compromiso,
@@ -162,6 +179,24 @@ const timelineEmprendimiento = async (req, res) => {
       ],
       order: [[{ model: Sesion, as: 'sesion' }, 'fecha', 'ASC']]
     });
+
+    const empId = Number(emprendimiento_id);
+    seguimientos.forEach((seg) => {
+      if (!seg.sesion?.archivos) {
+        return;
+      }
+
+      const archivosFiltrados = seg.sesion.archivos.filter((archivo) => {
+        if (!archivo.emprendimientos || archivo.emprendimientos.length === 0) {
+          return true;
+        }
+
+        return archivo.emprendimientos.some((empArchivo) => empArchivo.id === empId);
+      });
+
+      seg.sesion.setDataValue('archivos', archivosFiltrados);
+    });
+
     res.json({ seguimientos });
   } catch (error) {
     logger.error('Error al obtener timeline', { error: error.message });

@@ -402,7 +402,7 @@ const Emprendimientos = () => {
 
           {modoIntegrante === 'existente' ? (
             <div className="space-y-5">
-              <p className="text-xs text-brand-dark/60 bg-brand-cyan/5 border border-brand-cyan/10 p-3 rounded-xl">Selecciona un usuario emprendedor ya creado para vincularlo a este emprendimiento. Los administradores no aparecen en esta lista.</p>
+              <p className="text-xs text-brand-dark/60 bg-brand-cyan/5 border border-brand-cyan/10 p-3 rounded-xl">Selecciona un usuario emprendedor ya creado para vincularlo a este emprendimiento. Los administradores y los usuarios que ya pertenecen a otro proyecto no aparecen en esta lista.</p>
 
               <div>
                 <label className={LABEL_CLS}>Buscar usuario</label>

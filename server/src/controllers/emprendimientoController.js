@@ -227,6 +227,17 @@ const agregarIntegrante = async (req, res) => {
       return res.status(400).json({ mensaje: 'Solo los usuarios emprendedores pueden asignarse a un emprendimiento' });
     }
 
+    const asignacionExistente = await Integrante.findOne({
+      where: { usuario_id: usuario.id },
+      include: [{ model: Emprendimiento, as: 'emprendimiento', attributes: ['id', 'nombre'] }]
+    });
+
+    if (asignacionExistente && asignacionExistente.emprendimiento_id !== Number(id)) {
+      return res.status(400).json({
+        mensaje: `Este usuario ya pertenece al emprendimiento ${asignacionExistente.emprendimiento?.nombre || 'asignado'}`
+      });
+    }
+
     const existente = await Integrante.findOne({
       where: { emprendimiento_id: id, usuario_id: usuario.id }
     });
@@ -295,9 +306,8 @@ const buscarUsuariosParaIntegrante = async (req, res) => {
       }
     }
 
-    // Obtener integrantes actuales para excluirlos
+    // Excluir usuarios ya asignados a cualquier emprendimiento
     const integrantesActuales = await Integrante.findAll({
-      where: { emprendimiento_id: id },
       attributes: ['usuario_id']
     });
     const idsExcluir = integrantesActuales.map(i => i.usuario_id);

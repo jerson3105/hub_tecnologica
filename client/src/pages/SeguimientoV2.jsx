@@ -46,6 +46,14 @@ const TIPO_SESION_META = {
   seguimiento: { label: 'Seguimiento', icon: ClipboardList, color: 'bg-gray-100 text-gray-600 border-gray-200' }
 };
 
+const LINK_CATEGORIA_LABELS = {
+  grabacion: 'Grabación',
+  taller: 'Taller',
+  entregable: 'Entregable',
+  bmc: 'BMC',
+  otro: 'Otro'
+};
+
 const INPUT_CLS = 'w-full px-3 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-cyan/40 focus:border-brand-cyan outline-none transition-all text-sm';
 
 const SeguimientoV2 = () => {
@@ -329,15 +337,78 @@ const TimelineTab = ({ timeline, pendientes, invalidate, empId }) => {
 // ═══════════════════════════════════════════════════════════
 const DiagnosticosTab = ({ sesiones, invalidate }) => {
   const [editandoSeg, setEditandoSeg] = useState(null);
-  const [formSeg, setFormSeg] = useState({ realizado: '', observaciones: '' });
+  const [formSeg, setFormSeg] = useState({ realizado: '', observaciones: '', enlace_grabacion: '' });
+  const [formEnlace, setFormEnlace] = useState({ nombre: '', url: '', categoria: 'otro' });
+  const [guardandoEnlace, setGuardandoEnlace] = useState(false);
+  const [eliminandoEnlaceId, setEliminandoEnlaceId] = useState(null);
+
+  const iniciarEdicion = (seg) => {
+    setEditandoSeg(seg.id);
+    setFormSeg({
+      realizado: seg.realizado || '',
+      observaciones: seg.observaciones || '',
+      enlace_grabacion: seg.enlace_grabacion || ''
+    });
+    setFormEnlace({ nombre: '', url: '', categoria: 'otro' });
+  };
+
+  const cancelarEdicion = () => {
+    setEditandoSeg(null);
+    setFormEnlace({ nombre: '', url: '', categoria: 'otro' });
+    setEliminandoEnlaceId(null);
+  };
+
+  const obtenerEnlacesSesion = (seg) => (seg.sesion?.archivos || []).filter((archivo) => archivo.tipo === 'enlace' && archivo.url);
 
   const guardarSeguimiento = async (segId) => {
     try {
       await api.put(`/seguimientos/${segId}`, formSeg);
       toast.success('Diagnóstico actualizado');
-      setEditandoSeg(null);
+      cancelarEdicion();
       invalidate('timeline');
     } catch { toast.error('Error al guardar'); }
+  };
+
+  const agregarEnlace = async (seg) => {
+    if (!formEnlace.nombre.trim() || !formEnlace.url.trim()) {
+      toast.error('Nombre y URL son requeridos');
+      return;
+    }
+
+    setGuardandoEnlace(true);
+    try {
+      await api.post('/archivos/enlace', {
+        nombre: formEnlace.nombre.trim(),
+        url: formEnlace.url.trim(),
+        categoria: formEnlace.categoria,
+        emprendimiento_ids: [seg.emprendimiento_id],
+        sesion_id: seg.sesion?.id
+      });
+      toast.success('Enlace agregado al diagnóstico');
+      setFormEnlace({ nombre: '', url: '', categoria: 'otro' });
+      invalidate('timeline');
+    } catch (error) {
+      toast.error(error.response?.data?.mensaje || 'Error al agregar enlace');
+    } finally {
+      setGuardandoEnlace(false);
+    }
+  };
+
+  const eliminarEnlace = async (archivoId) => {
+    if (!window.confirm('¿Eliminar este enlace del diagnóstico?')) {
+      return;
+    }
+
+    setEliminandoEnlaceId(archivoId);
+    try {
+      await api.delete(`/archivos/${archivoId}`);
+      toast.success('Enlace eliminado');
+      invalidate('timeline');
+    } catch (error) {
+      toast.error(error.response?.data?.mensaje || 'Error al eliminar enlace');
+    } finally {
+      setEliminandoEnlaceId(null);
+    }
   };
 
   const ordenDiag = { diagnostica_1: 1, diagnostica_2: 2, diagnostica_final: 3 };
@@ -362,6 +433,7 @@ const DiagnosticosTab = ({ sesiones, invalidate }) => {
           const meta = TIPO_SESION_META[tipo];
           const TipoIcon = meta.icon;
           const esEditando = editandoSeg === seg?.id;
+          const enlacesAdicionales = seg ? obtenerEnlacesSesion(seg) : [];
 
           return (
             <div key={tipo} className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${seg ? 'border-gray-100' : 'border-dashed border-gray-200'}`}>
@@ -385,8 +457,87 @@ const DiagnosticosTab = ({ sesiones, invalidate }) => {
                         <label className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-wider">Observaciones</label>
                         <textarea value={formSeg.observaciones} onChange={e => setFormSeg({ ...formSeg, observaciones: e.target.value })} className={`${INPUT_CLS} min-h-[60px] resize-none mt-1`} placeholder="Observaciones..." />
                       </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-wider flex items-center gap-1"><Video size={10} /> Grabación principal</label>
+                        <input
+                          type="url"
+                          value={formSeg.enlace_grabacion}
+                          onChange={e => setFormSeg({ ...formSeg, enlace_grabacion: e.target.value })}
+                          className={`${INPUT_CLS} mt-1`}
+                          placeholder="https://drive.google.com/... o https://zoom.us/..."
+                        />
+                      </div>
+                      <div className="border-t border-gray-100 pt-3 space-y-3">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-brand-dark/40 uppercase tracking-wider">
+                          <Link2 size={10} /> Enlaces adicionales
+                        </div>
+
+                        {enlacesAdicionales.length > 0 ? (
+                          <div className="space-y-2">
+                            {enlacesAdicionales.map((archivo) => (
+                              <div key={archivo.id} className="flex items-start justify-between gap-2 rounded-xl border border-gray-100 px-3 py-2">
+                                <div className="min-w-0">
+                                  <a href={archivo.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-brand-cyan hover:underline break-all inline-flex items-center gap-1.5">
+                                    <ExternalLink size={12} /> {archivo.nombre_original}
+                                  </a>
+                                  <p className="text-[10px] text-gray-400 mt-1">{LINK_CATEGORIA_LABELS[archivo.categoria] || 'Enlace'}</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => eliminarEnlace(archivo.id)}
+                                  disabled={eliminandoEnlaceId === archivo.id}
+                                  className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-300 italic">Sin enlaces adicionales</p>
+                        )}
+
+                        <div className="grid grid-cols-1 gap-2">
+                          <input
+                            type="text"
+                            value={formEnlace.nombre}
+                            onChange={e => setFormEnlace({ ...formEnlace, nombre: e.target.value })}
+                            className={INPUT_CLS}
+                            placeholder="Nombre del enlace"
+                          />
+                          <input
+                            type="url"
+                            value={formEnlace.url}
+                            onChange={e => setFormEnlace({ ...formEnlace, url: e.target.value })}
+                            className={INPUT_CLS}
+                            placeholder="https://..."
+                          />
+                          <select
+                            value={formEnlace.categoria}
+                            onChange={e => setFormEnlace({ ...formEnlace, categoria: e.target.value })}
+                            className={INPUT_CLS}
+                          >
+                            <option value="otro">Enlace adicional</option>
+                            <option value="grabacion">Grabación</option>
+                            <option value="entregable">Entregable</option>
+                            <option value="taller">Taller</option>
+                            <option value="bmc">BMC</option>
+                          </select>
+                        </div>
+
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => agregarEnlace(seg)}
+                            disabled={guardandoEnlace}
+                            className="px-3 py-1.5 text-xs bg-brand-cyan text-white rounded-lg hover:bg-brand-cyan/90 disabled:opacity-50 flex items-center gap-1"
+                          >
+                            <Plus size={12} /> {guardandoEnlace ? 'Agregando...' : 'Agregar enlace'}
+                          </button>
+                        </div>
+                      </div>
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => setEditandoSeg(null)} className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 rounded-lg">Cancelar</button>
+                        <button onClick={cancelarEdicion} className="px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100 rounded-lg">Cancelar</button>
                         <button onClick={() => guardarSeguimiento(seg.id)} className="px-3 py-1.5 text-xs bg-brand-dark text-white rounded-lg flex items-center gap-1"><Save size={12} /> Guardar</button>
                       </div>
                     </>
@@ -406,7 +557,31 @@ const DiagnosticosTab = ({ sesiones, invalidate }) => {
                           <p className="text-xs text-gray-500 whitespace-pre-line">{seg.observaciones}</p>
                         </div>
                       )}
-                      <button onClick={() => { setEditandoSeg(seg.id); setFormSeg({ realizado: seg.realizado || '', observaciones: seg.observaciones || '' }); }} className="text-xs text-brand-purple hover:text-brand-dark font-medium flex items-center gap-1">
+                      <div>
+                        <p className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-wider mb-1 flex items-center gap-1"><Video size={10} /> Grabación principal</p>
+                        {seg.enlace_grabacion ? (
+                          <a href={seg.enlace_grabacion} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-cyan hover:underline flex items-center gap-1 break-all">
+                            <Video size={12} /> {seg.enlace_grabacion}
+                          </a>
+                        ) : (
+                          <p className="text-xs text-gray-300 italic">Sin grabación registrada</p>
+                        )}
+                      </div>
+                      {enlacesAdicionales.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-wider mb-1 flex items-center gap-1"><Link2 size={10} /> Enlaces adicionales</p>
+                          <div className="space-y-1.5">
+                            {enlacesAdicionales.map((archivo) => (
+                              <a key={archivo.id} href={archivo.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-brand-cyan hover:underline break-all">
+                                <ExternalLink size={12} />
+                                <span>{archivo.nombre_original}</span>
+                                <span className="text-[10px] text-gray-400">({LINK_CATEGORIA_LABELS[archivo.categoria] || 'Enlace'})</span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <button onClick={() => iniciarEdicion(seg)} className="text-xs text-brand-purple hover:text-brand-dark font-medium flex items-center gap-1">
                         <Edit3 size={12} /> Editar
                       </button>
                     </>

@@ -65,6 +65,10 @@ const Usuarios = () => {
   });
 
   const emprendimientosDisponibles = useMemo(() => {
+    if ((usuarioAsignaciones?.integrantes?.length || 0) > 0) {
+      return [];
+    }
+
     const idsAsignados = new Set((usuarioAsignaciones?.integrantes || []).map((integrante) => integrante.emprendimiento?.id).filter(Boolean));
     return emprendimientosActivos.filter((emprendimiento) => emprendimiento.estado !== 'retirado' && !idsAsignados.has(emprendimiento.id));
   }, [emprendimientosActivos, usuarioAsignaciones]);
@@ -508,6 +512,12 @@ const Usuarios = () => {
               Asignar a un emprendimiento
             </div>
 
+            {(usuarioAsignaciones?.integrantes?.length || 0) > 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Este usuario ya pertenece a un emprendimiento. Para moverlo a otro, primero elimina su asignación actual.
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className={LABEL_CLS}>Emprendimiento</label>
@@ -515,7 +525,7 @@ const Usuarios = () => {
                   value={formAsignacion.emprendimiento_id}
                   onChange={(e) => setFormAsignacion(prev => ({ ...prev, emprendimiento_id: e.target.value }))}
                   className={INPUT_CLS}
-                  disabled={cargandoEmprendimientosActivos || guardandoAsignacion}
+                  disabled={cargandoEmprendimientosActivos || guardandoAsignacion || (usuarioAsignaciones?.integrantes?.length || 0) > 0}
                 >
                   <option value="">Seleccionar emprendimiento</option>
                   {emprendimientosDisponibles.map((emprendimiento) => (
@@ -533,6 +543,7 @@ const Usuarios = () => {
                   onChange={(e) => setFormAsignacion(prev => ({ ...prev, rol_emprendimiento: e.target.value }))}
                   placeholder="Ej: CEO, Co-fundador, Marketing"
                   className={INPUT_CLS}
+                  disabled={(usuarioAsignaciones?.integrantes?.length || 0) > 0}
                 />
               </div>
             </div>
@@ -544,6 +555,7 @@ const Usuarios = () => {
                   checked={formAsignacion.es_lider}
                   onChange={(e) => setFormAsignacion(prev => ({ ...prev, es_lider: e.target.checked }))}
                   className="rounded border-gray-300 text-brand-purple focus:ring-brand-purple"
+                  disabled={(usuarioAsignaciones?.integrantes?.length || 0) > 0}
                 />
                 <span className="text-sm font-semibold text-brand-dark">Marcar como líder del emprendimiento</span>
               </label>
