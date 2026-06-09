@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import api, { descargarArchivo } from '../services/api';
 import Modal from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
-import { Upload, Download, Trash2, FileUp, File, Image, FileText, Film, Link2, ExternalLink, Plus } from 'lucide-react';
+import { Download, Trash2, FileUp, File, Image, FileText, Film, Link2, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
 import { useEmprendimientos, useSesiones, useInvalidate } from '../hooks/useQueryHooks';
@@ -15,15 +15,11 @@ const Archivos = () => {
   const { esAdmin } = useAuth();
   const invalidate = useInvalidate();
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalTipo, setModalTipo] = useState('archivo');
   const [filtroEmprendimiento, setFiltroEmprendimiento] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [subiendo, setSubiendo] = useState(false);
-  const [formArchivo, setFormArchivo] = useState({
-    archivo: null, categoria: 'otro', emprendimiento_ids: [], sesion_id: ''
-  });
   const [formEnlace, setFormEnlace] = useState({
-    nombre: '', url: '', categoria: 'otro', emprendimiento_ids: [], sesion_id: ''
+    nombre: '', url: '', descripcion: '', categoria: 'otro', emprendimiento_ids: [], sesion_id: ''
   });
 
   const archParams = {};
@@ -38,15 +34,6 @@ const Archivos = () => {
   const { data: sesiones = [] } = useSesiones();
   const cargando = l1;
 
-  const toggleEmpArchivo = (empId) => {
-    setFormArchivo(prev => ({
-      ...prev,
-      emprendimiento_ids: prev.emprendimiento_ids.includes(empId)
-        ? prev.emprendimiento_ids.filter(id => id !== empId)
-        : [...prev.emprendimiento_ids, empId]
-    }));
-  };
-
   const toggleEmpEnlace = (empId) => {
     setFormEnlace(prev => ({
       ...prev,
@@ -56,44 +43,9 @@ const Archivos = () => {
     }));
   };
 
-  const abrirModal = (tipo) => {
-    setModalTipo(tipo);
-    if (tipo === 'archivo') {
-      setFormArchivo({ archivo: null, categoria: 'otro', emprendimiento_ids: [], sesion_id: '' });
-    } else {
-      setFormEnlace({ nombre: '', url: '', categoria: 'otro', emprendimiento_ids: [], sesion_id: '' });
-    }
+  const abrirModal = () => {
+    setFormEnlace({ nombre: '', url: '', descripcion: '', categoria: 'otro', emprendimiento_ids: [], sesion_id: '' });
     setModalOpen(true);
-  };
-
-  const subirArchivo = async (e) => {
-    e.preventDefault();
-    if (!formArchivo.archivo) {
-      toast.error('Selecciona un archivo');
-      return;
-    }
-
-    setSubiendo(true);
-    try {
-      const formData = new FormData();
-      formData.append('archivo', formArchivo.archivo);
-      formData.append('categoria', formArchivo.categoria);
-      if (formArchivo.emprendimiento_ids.length > 0) {
-        formData.append('emprendimiento_ids', JSON.stringify(formArchivo.emprendimiento_ids));
-      }
-      if (formArchivo.sesion_id) formData.append('sesion_id', formArchivo.sesion_id);
-
-      await api.post('/archivos', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      toast.success('Archivo subido exitosamente');
-      setModalOpen(false);
-      invalidate('archivos');
-    } catch (error) {
-      toast.error(error.response?.data?.mensaje || 'Error al subir archivo');
-    } finally {
-      setSubiendo(false);
-    }
   };
 
   const guardarEnlace = async (e) => {
@@ -108,6 +60,7 @@ const Archivos = () => {
       await api.post('/archivos/enlace', {
         nombre: formEnlace.nombre,
         url: formEnlace.url,
+        descripcion: formEnlace.descripcion,
         categoria: formEnlace.categoria,
         emprendimiento_ids: formEnlace.emprendimiento_ids,
         sesion_id: formEnlace.sesion_id || null
@@ -128,7 +81,7 @@ const Archivos = () => {
       await api.delete(`/archivos/${id}`);
       toast.success('Recurso eliminado');
       invalidate('archivos');
-    } catch (error) {
+    } catch {
       toast.error('Error al eliminar');
     }
   };
@@ -182,9 +135,9 @@ const Archivos = () => {
         <div>
           <h1 className="text-2xl font-bold text-brand-dark flex items-center gap-2">
             <div className="p-2 bg-brand-green/10 rounded-xl"><FileUp size={22} className="text-brand-green" /></div>
-            Archivos y Enlaces
+            Materiales
           </h1>
-          <p className="text-gray-400 mt-1 ml-12">Gestión de documentos, entregables y enlaces</p>
+          <p className="text-gray-400 mt-1 ml-12">Gestión de enlaces, recursos y materiales compartidos</p>
         </div>
         <div className="flex gap-3 flex-wrap">
           <select value={filtroEmprendimiento} onChange={(e) => setFiltroEmprendimiento(e.target.value)} className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-cyan/40 focus:border-brand-cyan outline-none transition-all">
@@ -199,10 +152,7 @@ const Archivos = () => {
             <option value="grabacion">Grabación</option>
             <option value="otro">Otro</option>
           </select>
-          <button onClick={() => abrirModal('archivo')} className="bg-brand-dark text-white px-5 py-2.5 rounded-xl hover:bg-brand-dark/90 flex items-center gap-2 text-sm font-medium whitespace-nowrap shadow-sm transition-all hover:shadow-md">
-            <Upload size={18} /> Subir Archivo
-          </button>
-          <button onClick={() => abrirModal('enlace')} className="bg-brand-cyan text-white px-5 py-2.5 rounded-xl hover:bg-brand-cyan/90 flex items-center gap-2 text-sm font-medium whitespace-nowrap shadow-sm transition-all hover:shadow-md">
+          <button onClick={abrirModal} className="bg-brand-cyan text-white px-5 py-2.5 rounded-xl hover:bg-brand-cyan/90 flex items-center gap-2 text-sm font-medium whitespace-nowrap shadow-sm transition-all hover:shadow-md">
             <Link2 size={18} /> Agregar Enlace
           </button>
         </div>
@@ -213,8 +163,8 @@ const Archivos = () => {
           <div className="w-16 h-16 bg-brand-green/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <FileUp size={32} className="text-brand-green" />
           </div>
-          <p className="text-gray-500 font-medium">No hay archivos ni enlaces</p>
-          <p className="text-gray-400 text-sm mt-1">Sube tu primer archivo o agrega un enlace</p>
+          <p className="text-gray-500 font-medium">No hay materiales disponibles</p>
+          <p className="text-gray-400 text-sm mt-1">Agrega tu primer enlace para compartirlo con los emprendimientos</p>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
@@ -238,7 +188,12 @@ const Archivos = () => {
                     <td className="py-3.5 px-4">
                       <div className="flex items-center gap-2.5">
                         <div className="p-1.5 bg-gray-50 rounded-lg">{getIcono(arch)}</div>
-                        <span className="font-medium text-brand-dark truncate max-w-xs">{arch.nombre_original}</span>
+                        <div className="min-w-0">
+                          <span className="font-medium text-brand-dark block truncate max-w-xs">{arch.nombre_original}</span>
+                          {arch.descripcion && (
+                            <p className="text-xs text-gray-500 mt-0.5 max-w-xs whitespace-pre-line break-words">{arch.descripcion}</p>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="py-3.5 px-4">
@@ -296,44 +251,8 @@ const Archivos = () => {
         </div>
       )}
 
-      {/* Modal Subir Archivo */}
-      <Modal isOpen={modalOpen && modalTipo === 'archivo'} onClose={() => setModalOpen(false)} title="Subir Archivo" size="lg">
-        <form onSubmit={subirArchivo} className="space-y-5">
-          <div>
-            <label className={LABEL_CLS}>Archivo *</label>
-            <input type="file" onChange={(e) => setFormArchivo({...formArchivo, archivo: e.target.files[0]})} required className={INPUT_CLS} />
-            <p className="text-xs text-gray-400 mt-1.5">Máximo 10MB</p>
-          </div>
-          <div>
-            <label className={LABEL_CLS}>Categoría</label>
-            <select value={formArchivo.categoria} onChange={(e) => setFormArchivo({...formArchivo, categoria: e.target.value})} className={INPUT_CLS}>
-              <option value="bmc">Business Model Canvas</option>
-              <option value="taller">Trabajo de Taller</option>
-              <option value="entregable">Entregable</option>
-              <option value="grabacion">Grabación</option>
-              <option value="otro">Otro</option>
-            </select>
-          </div>
-          <CheckboxEmprendimientos selectedIds={formArchivo.emprendimiento_ids} onToggle={toggleEmpArchivo} />
-          <div>
-            <label className={LABEL_CLS}>Sesión</label>
-            <select value={formArchivo.sesion_id} onChange={(e) => setFormArchivo({...formArchivo, sesion_id: e.target.value})} className={INPUT_CLS}>
-              <option value="">Sin asignar</option>
-              {sesiones.map(s => <option key={s.id} value={s.id}>{s.titulo}</option>)}
-            </select>
-          </div>
-          <div className="flex justify-end gap-3 pt-5 border-t border-gray-100">
-            <button type="button" onClick={() => setModalOpen(false)} className="px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-xl font-medium transition-colors">Cancelar</button>
-            <button type="submit" disabled={subiendo} className="px-6 py-2.5 text-sm bg-brand-dark text-white rounded-xl hover:bg-brand-dark/90 disabled:opacity-50 flex items-center gap-2 font-medium shadow-sm transition-all hover:shadow-md">
-              {subiendo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <Upload size={16} />}
-              {subiendo ? 'Subiendo...' : 'Subir'}
-            </button>
-          </div>
-        </form>
-      </Modal>
-
       {/* Modal Agregar Enlace */}
-      <Modal isOpen={modalOpen && modalTipo === 'enlace'} onClose={() => setModalOpen(false)} title="Agregar Enlace" size="lg">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Agregar Enlace" size="lg">
         <form onSubmit={guardarEnlace} className="space-y-5">
           <div>
             <label className={LABEL_CLS}>Nombre del enlace *</label>
@@ -342,6 +261,10 @@ const Archivos = () => {
           <div>
             <label className={LABEL_CLS}>URL *</label>
             <input type="url" value={formEnlace.url} onChange={(e) => setFormEnlace({...formEnlace, url: e.target.value})} required placeholder="https://..." className={INPUT_CLS} />
+          </div>
+          <div>
+            <label className={LABEL_CLS}>Descripción</label>
+            <textarea value={formEnlace.descripcion} onChange={(e) => setFormEnlace({...formEnlace, descripcion: e.target.value})} rows={3} placeholder="Explica brevemente para qué sirve este material o qué contiene el enlace" className={`${INPUT_CLS} resize-y min-h-[96px]`} />
           </div>
           <div>
             <label className={LABEL_CLS}>Categoría</label>

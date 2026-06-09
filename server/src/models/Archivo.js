@@ -30,6 +30,10 @@ const Archivo = sequelize.define('Archivo', {
     allowNull: true,
     comment: 'URL del enlace externo'
   },
+  descripcion: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
   tipo_mime: {
     type: DataTypes.STRING(100),
     allowNull: true

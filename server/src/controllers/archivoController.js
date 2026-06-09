@@ -63,7 +63,7 @@ const subir = async (req, res) => {
 
 const crearEnlace = async (req, res) => {
   try {
-    const { nombre, url, categoria, emprendimiento_ids, sesion_id } = req.body;
+    const { nombre, url, descripcion, categoria, emprendimiento_ids, sesion_id } = req.body;
 
     if (!url) {
       return res.status(400).json({ mensaje: 'La URL es requerida' });
@@ -90,6 +90,7 @@ const crearEnlace = async (req, res) => {
       tipo: 'enlace',
       nombre_original: nombre,
       url,
+      descripcion: descripcion?.trim() || null,
       categoria: categoria || 'otro',
       sesion_id: sesion_id || null,
       subido_por: req.usuario.id

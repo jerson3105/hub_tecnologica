@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import Modal from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
-import { Rocket, Users, ClipboardList, FileUp, CalendarDays, AlertCircle, UserPlus, X, Crown } from 'lucide-react';
+import { Rocket, Users, ClipboardList, FileUp, CalendarDays, AlertCircle, UserPlus, X, Crown, KeyRound, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useEmprendimientos, useInvalidate } from '../hooks/useQueryHooks';
 
@@ -24,6 +24,7 @@ const MiEmprendimiento = () => {
   const [empSeleccionado, setEmpSeleccionado] = useState(null);
   const [formIntegrante, setFormIntegrante] = useState({ ...formIntegranteVacio });
   const [agregando, setAgregando] = useState(false);
+  const [modalPassword, setModalPassword] = useState(null);
 
   const esLiderDe = (emp) => {
     return emp.integrantes?.some(int => int.usuario_id === usuario?.id && int.es_lider);
@@ -35,6 +36,15 @@ const MiEmprendimiento = () => {
     setModalIntegrante(true);
   };
 
+  const copiarAlPortapapeles = async (texto) => {
+    try {
+      await navigator.clipboard.writeText(texto);
+      toast.success('Contraseña copiada');
+    } catch {
+      toast.error('No se pudo copiar la contraseña');
+    }
+  };
+
   const agregarIntegrante = async (e) => {
     e.preventDefault();
     if (!formIntegrante.nombre || !formIntegrante.apellido || !formIntegrante.email) {
@@ -43,9 +53,24 @@ const MiEmprendimiento = () => {
     }
     setAgregando(true);
     try {
-      await api.post(`/emprendimientos/${empSeleccionado.id}/integrantes`, formIntegrante);
-      toast.success('Integrante agregado exitosamente');
+      const { data } = await api.post(`/emprendimientos/${empSeleccionado.id}/integrantes`, formIntegrante);
+      const nombreUsuario = [data.usuario?.nombre, data.usuario?.apellido].filter(Boolean).join(' ');
+
+      if (data.passwordTemporal) {
+        toast.success('Integrante agregado y cuenta creada');
+        setModalPassword({
+          titulo: 'Cuenta creada',
+          descripcion: `Comparte esta contraseña temporal con ${nombreUsuario || 'el integrante'}.`,
+          password: data.passwordTemporal
+        });
+      } else if (data.usuarioCreado === false) {
+        toast.success('Integrante agregado. Se vinculó una cuenta existente');
+      } else {
+        toast.success('Integrante agregado exitosamente');
+      }
+
       setModalIntegrante(false);
+      setFormIntegrante({ ...formIntegranteVacio });
       invalidate('emprendimientos');
     } catch (error) {
       toast.error(error.response?.data?.mensaje || 'Error al agregar integrante');
@@ -66,6 +91,23 @@ const MiEmprendimiento = () => {
       invalidate('emprendimientos');
     } catch (error) {
       toast.error(error.response?.data?.mensaje || 'Error al eliminar integrante');
+    }
+  };
+
+  const resetearPasswordIntegrante = async (empId, integrante) => {
+    const nombreUsuario = [integrante.usuario?.nombre, integrante.usuario?.apellido].filter(Boolean).join(' ');
+    if (!confirm(`¿Generar una nueva contraseña temporal para ${nombreUsuario || 'este integrante'}?`)) return;
+
+    try {
+      const { data } = await api.post(`/emprendimientos/${empId}/integrantes/${integrante.id}/resetear-password`);
+      toast.success('Contraseña temporal generada');
+      setModalPassword({
+        titulo: 'Contraseña reseteada',
+        descripcion: `Comparte esta nueva contraseña temporal con ${nombreUsuario || 'el integrante'}.`,
+        password: data.passwordTemporal
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.mensaje || 'Error al resetear la contraseña');
     }
   };
 
@@ -152,9 +194,14 @@ const MiEmprendimiento = () => {
                         <span className="text-brand-dark font-medium">{int.usuario?.nombre} {int.usuario?.apellido}</span>
                         {int.rol_emprendimiento && <span className="text-gray-400 text-xs">({int.rol_emprendimiento})</span>}
                         {soyLider && int.usuario_id !== usuario?.id && (
-                          <button onClick={() => eliminarIntegrante(emp.id, int.id)} className="text-gray-300 hover:text-red-500 ml-1 transition-colors" title="Eliminar integrante">
-                            <X size={14} />
-                          </button>
+                          <>
+                            <button onClick={() => resetearPasswordIntegrante(emp.id, int)} className="text-gray-300 hover:text-brand-cyan ml-1 transition-colors" title="Generar contraseña temporal">
+                              <KeyRound size={14} />
+                            </button>
+                            <button onClick={() => eliminarIntegrante(emp.id, int.id)} className="text-gray-300 hover:text-red-500 transition-colors" title="Eliminar integrante">
+                              <X size={14} />
+                            </button>
+                          </>
                         )}
                       </div>
                     ))}
@@ -179,8 +226,8 @@ const MiEmprendimiento = () => {
                 <div className="w-12 h-12 bg-brand-green/10 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-green/15 transition-colors">
                   <FileUp size={22} className="text-brand-green" />
                 </div>
-                <p className="font-semibold text-brand-dark">Mis Archivos</p>
-                <p className="text-xs text-gray-400 mt-1">Documentos y entregables</p>
+                <p className="font-semibold text-brand-dark">Mis Materiales</p>
+                <p className="text-xs text-gray-400 mt-1">Enlaces y recursos compartidos</p>
               </Link>
               <Link to="/sesiones" className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-brand-cyan/20 transition-all text-center group shadow-sm">
                 <div className="w-12 h-12 bg-brand-cyan/10 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-cyan/15 transition-colors">
@@ -197,7 +244,7 @@ const MiEmprendimiento = () => {
       {/* Modal Agregar Integrante */}
       <Modal isOpen={modalIntegrante} onClose={() => setModalIntegrante(false)} title={`Agregar Integrante a ${empSeleccionado?.nombre}`} size="xl">
         <form onSubmit={agregarIntegrante} className="space-y-5">
-          <p className="text-xs text-gray-500 bg-brand-cyan/5 border border-brand-cyan/10 p-3 rounded-xl">Ingresa los datos del nuevo integrante. Se creará una cuenta automáticamente.</p>
+          <p className="text-xs text-gray-500 bg-brand-cyan/5 border border-brand-cyan/10 p-3 rounded-xl">Ingresa los datos del integrante. Si el correo no existe, se creará una cuenta automáticamente. Si ya existe y no pertenece a otro emprendimiento, se vinculará esa cuenta.</p>
 
           <p className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-wider">Datos Personales</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -291,6 +338,20 @@ const MiEmprendimiento = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal isOpen={!!modalPassword} onClose={() => setModalPassword(null)} title={modalPassword?.titulo || 'Contraseña temporal'} size="sm">
+        <div className="text-center space-y-4">
+          <p className="text-sm text-gray-500">{modalPassword?.descripcion || 'La contraseña temporal es:'}</p>
+          <div className="flex items-center justify-center gap-2">
+            <code className="bg-gray-50 px-5 py-2.5 rounded-xl border border-gray-200 text-xl font-mono text-brand-dark">{modalPassword?.password}</code>
+            <button type="button" onClick={() => copiarAlPortapapeles(modalPassword?.password || '')} className="p-2 text-brand-cyan hover:bg-brand-cyan/10 rounded-xl transition-colors">
+              <Copy size={18} />
+            </button>
+          </div>
+          <p className="text-xs text-gray-400">Esta contraseña sólo se muestra una vez desde esta vista.</p>
+          <button type="button" onClick={() => setModalPassword(null)} className="px-6 py-2.5 text-sm bg-brand-dark text-white rounded-xl hover:bg-brand-dark/90 font-medium shadow-sm transition-all hover:shadow-md">Cerrar</button>
+        </div>
       </Modal>
     </div>
   );

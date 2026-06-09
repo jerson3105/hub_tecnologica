@@ -181,6 +181,8 @@ const agregarIntegrante = async (req, res) => {
     }
 
     let usuario;
+    let passwordTemporal = null;
+    let usuarioCreado = false;
 
     if (usuario_id) {
       usuario = await Usuario.findByPk(usuario_id);
@@ -216,6 +218,8 @@ const agregarIntegrante = async (req, res) => {
           cargo,
           dedicacion
         });
+        passwordTemporal = passwordGenerado;
+        usuarioCreado = true;
       }
     }
 
@@ -255,7 +259,9 @@ const agregarIntegrante = async (req, res) => {
     res.status(201).json({
       mensaje: 'Integrante agregado exitosamente',
       integrante,
-      usuario: usuario.toJSON()
+      usuario: usuario.toJSON(),
+      usuarioCreado,
+      passwordTemporal
     });
   } catch (error) {
     logger.error('Error al agregar integrante:', error);
@@ -288,6 +294,54 @@ const eliminarIntegrante = async (req, res) => {
     res.json({ mensaje: 'Integrante eliminado' });
   } catch (error) {
     logger.error('Error al eliminar integrante:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor' });
+  }
+};
+
+const resetearPasswordIntegrante = async (req, res) => {
+  try {
+    const { id, integranteId } = req.params;
+
+    const emprendimiento = await Emprendimiento.findByPk(id);
+    if (!emprendimiento) {
+      return res.status(404).json({ mensaje: 'Emprendimiento no encontrado' });
+    }
+
+    if (req.usuario.rol === 'emprendedor') {
+      const lider = await Integrante.findOne({
+        where: { emprendimiento_id: id, usuario_id: req.usuario.id, es_lider: true }
+      });
+      if (!lider) {
+        return res.status(403).json({ mensaje: 'Solo los líderes pueden resetear contraseñas' });
+      }
+    }
+
+    const integrante = await Integrante.findOne({
+      where: { id: integranteId, emprendimiento_id: id },
+      include: [{ model: Usuario, as: 'usuario' }]
+    });
+    if (!integrante || !integrante.usuario) {
+      return res.status(404).json({ mensaje: 'Integrante no encontrado' });
+    }
+
+    if (req.usuario.rol === 'emprendedor' && integrante.usuario_id === req.usuario.id) {
+      return res.status(400).json({ mensaje: 'No puedes resetear tu propia contraseña desde esta vista' });
+    }
+
+    if (integrante.usuario.rol !== 'emprendedor') {
+      return res.status(400).json({ mensaje: 'Solo se pueden resetear contraseñas de usuarios emprendedores' });
+    }
+
+    const passwordGenerado = generarPasswordAleatorio();
+    integrante.usuario.password = passwordGenerado;
+    await integrante.usuario.save();
+
+    res.json({
+      mensaje: 'Contraseña reseteada exitosamente',
+      passwordTemporal: passwordGenerado
+    });
+  } catch (error) {
+    logger.error('Error al resetear contraseña de integrante:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });
   }
 };
@@ -357,4 +411,15 @@ const miEmprendimiento = async (req, res) => {
   }
 };
 
-module.exports = { crear, listar, obtenerPorId, actualizar, eliminar, agregarIntegrante, eliminarIntegrante, buscarUsuariosParaIntegrante, miEmprendimiento };
+module.exports = {
+  crear,
+  listar,
+  obtenerPorId,
+  actualizar,
+  eliminar,
+  agregarIntegrante,
+  eliminarIntegrante,
+  resetearPasswordIntegrante,
+  buscarUsuariosParaIntegrante,
+  miEmprendimiento
+};

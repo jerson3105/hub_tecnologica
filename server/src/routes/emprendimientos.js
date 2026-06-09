@@ -40,6 +40,8 @@ router.post('/:id/integrantes', [
   })
 ], validate, emprendimientoController.agregarIntegrante);
 
+router.post('/:id/integrantes/:integranteId/resetear-password', emprendimientoController.resetearPasswordIntegrante);
+
 router.delete('/:id/integrantes/:integranteId', emprendimientoController.eliminarIntegrante);
 
 module.exports = router;
