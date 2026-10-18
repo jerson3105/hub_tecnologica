@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import api, { descargarArchivo } from '../services/api';
-import Modal from '../components/Modal';
+import Modal, { ModalPie } from '../components/Modal';
 import Button from '../components/ui/Button';
 import IconButton from '../components/ui/IconButton';
 import Badge from '../components/ui/Badge';
@@ -287,12 +287,12 @@ const Archivos = () => {
             </Field>
           </div>
           <CheckboxEmprendimientos emprendimientos={emprendimientos} selectedIds={formEnlace.emprendimiento_ids} onToggle={toggleEmpEnlace} />
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-5 border-t border-gray-100">
+          <ModalPie>
             <Button variante="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
             <Button type="submit" variante="accent" cargando={subiendo} icono={Link2}>
               {subiendo ? 'Guardando...' : 'Guardar Enlace'}
             </Button>
-          </div>
+          </ModalPie>
         </form>
       </Modal>
     </div>

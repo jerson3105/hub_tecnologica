@@ -1,10 +1,14 @@
 const { Op } = require('sequelize');
-const { Emprendimiento, Integrante, Usuario, Programa, Seguimiento, Archivo, Sesion, Compromiso } = require('../models');
+const { Emprendimiento, Integrante, Usuario, Programa, Seguimiento, Archivo, Sesion, SesionPrograma, Compromiso } = require('../models');
 const { generarPasswordAleatorio } = require('../utils/helpers');
 const { paginate, paginatedResponse } = require('../utils/pagination');
 const logger = require('../utils/logger');
 const { normalizeUserPayload } = require('../utils/userPayload');
 const { asegurarSeguimientosDeEmprendimiento } = require('../services/seguimientos');
+const { cargarFilasDeEmprendimientos } = require('../services/cargaSeguimiento');
+const { indexarAsistencias, construirCartera, agruparPor } = require('../services/inicio');
+const { hoyLocal } = require('../utils/fechas');
+const { puedeAccederEmprendimiento } = require('../utils/acceso');
 
 // Crea los seguimientos del emprendimiento para las sesiones de su programa. Si falla no se
 // pierde el cambio: el timeline muestra las sesiones igualmente y el registro se crea al editarlo.
@@ -91,7 +95,7 @@ const obtenerPorId = async (req, res) => {
           as: 'seguimientos',
           attributes: ['id', 'realizado', 'compromisos', 'observaciones', 'estado_avance', 'enlace_grabacion', 'created_at'],
           include: [
-            { model: Sesion, as: 'sesion', attributes: ['id', 'titulo', 'fecha'] },
+            { model: Sesion, as: 'sesion', attributes: ['id', 'titulo', 'fecha', 'tipo'] },
             // Compromisos de la tabla nueva; `compromisos` (texto) queda solo para datos antiguos
             { model: Compromiso, as: 'compromisoItems', attributes: ['id', 'descripcion', 'estado', 'orden'] }
           ]
@@ -441,7 +445,93 @@ const miEmprendimiento = async (req, res) => {
   }
 };
 
+// ─── Resúmenes (indicadores de salud) ───
+
+// Líder y tamaño del equipo de un emprendimiento
+const equipoDe = (integrantes) => {
+  const lider = integrantes.find((i) => i.es_lider)?.usuario;
+  return { integrantes: integrantes.length, lider: lider ? `${lider.nombre} ${lider.apellido || ''}`.trim() : null };
+};
+
+// Filas de cartera (última reunión, compromisos, OKR, asistencia) de una lista de emprendimientos
+const carteraDe = async (emprendimientos, hoy) => {
+  const filas = await cargarFilasDeEmprendimientos(emprendimientos.map((e) => e.id), hoy);
+  const { sesionesConAsistencia, presentesPorSesion } = indexarAsistencias(filas.asistencias);
+  const integrantesPorEmp = agruparPor(filas.integrantes, 'emprendimiento_id');
+  const cartera = construirCartera({ emprendimientos, ...filas, hoy, sesionesConAsistencia, presentesPorSesion });
+  return { filas, cartera: cartera.map((f) => ({ ...f, ...equipoDe(integrantesPorEmp.get(f.id) || []) })) };
+};
+
+const ATRIBUTOS_RESUMEN = ['id', 'nombre', 'sector', 'estado', 'programa_id', 'createdAt'];
+
+// GET /api/emprendimientos/resumen — listado del equipo técnico, ordenado por atención requerida
+const listarResumen = async (req, res) => {
+  try {
+    const hoy = hoyLocal();
+    const emprendimientos = await Emprendimiento.findAll({
+      attributes: ATRIBUTOS_RESUMEN,
+      include: [{ model: Programa, as: 'programa', attributes: ['id', 'nombre'] }],
+      order: [['nombre', 'ASC']]
+    });
+    const { cartera } = await carteraDe(emprendimientos, hoy);
+    res.json({ hoy, emprendimientos: cartera });
+  } catch (error) {
+    logger.error('Error al resumir emprendimientos:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor' });
+  }
+};
+
+// Primera sesión de hoy en adelante de un programa (tabla puente o columna antigua programa_id)
+const proximaSesionDe = async (programaId, hoy) => {
+  if (!programaId) return null;
+  const puente = await SesionPrograma.findAll({ where: { programa_id: programaId }, attributes: ['sesion_id'] });
+  const ids = puente.map((p) => p.sesion_id);
+  return Sesion.findOne({
+    where: { fecha: { [Op.gte]: hoy }, [Op.or]: [{ programa_id: programaId }, ...(ids.length ? [{ id: ids }] : [])] },
+    attributes: ['id', 'titulo', 'fecha', 'tipo'],
+    order: [['fecha', 'ASC'], ['id', 'ASC']]
+  });
+};
+
+// GET /api/emprendimientos/:id/resumen — indicadores del detalle (admin o integrante)
+const obtenerResumen = async (req, res) => {
+  try {
+    const emprendimiento = await Emprendimiento.findByPk(req.params.id, {
+      attributes: ATRIBUTOS_RESUMEN,
+      include: [{ model: Programa, as: 'programa', attributes: ['id', 'nombre'] }]
+    });
+    if (!emprendimiento) {
+      return res.status(404).json({ mensaje: 'Emprendimiento no encontrado' });
+    }
+    if (!(await puedeAccederEmprendimiento(req.usuario, emprendimiento.id))) {
+      return res.status(403).json({ mensaje: 'No tienes acceso a este emprendimiento' });
+    }
+
+    const hoy = hoyLocal();
+    const [{ filas, cartera }, proximaSesion] = await Promise.all([
+      carteraDe([emprendimiento], hoy),
+      proximaSesionDe(emprendimiento.programa_id, hoy)
+    ]);
+    const compromisos = filas.seguimientos.flatMap((s) => s.compromisoItems || []);
+    const completados = compromisos.filter((c) => c.estado === 'completado').length;
+    res.json({
+      hoy,
+      resumen: {
+        ...cartera[0],
+        compromisosTotales: compromisos.length,
+        compromisosCumplidos: compromisos.length ? Math.round((completados / compromisos.length) * 100) : null
+      },
+      proximaSesion
+    });
+  } catch (error) {
+    logger.error('Error al resumir el emprendimiento:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor' });
+  }
+};
+
 module.exports = {
+  listarResumen,
+  obtenerResumen,
   crear,
   listar,
   obtenerPorId,

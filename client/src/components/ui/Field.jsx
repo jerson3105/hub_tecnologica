@@ -18,7 +18,7 @@ export const Field = ({ label, requerido = false, ayuda, error, className = '', 
       {label && (
         <label htmlFor={id} className={ETIQUETA_CLS}>
           {label}
-          {requerido && <span className="text-red-700" aria-hidden="true"> *</span>}
+          {requerido && <span className="text-danger" aria-hidden="true"> *</span>}
         </label>
       )}
       {isValidElement(children)
@@ -29,8 +29,8 @@ export const Field = ({ label, requerido = false, ayuda, error, className = '', 
           required: children.props.required ?? (requerido || undefined)
         })
         : children}
-      {ayuda && <p id={idAyuda} className="text-xs text-gray-500 mt-1">{ayuda}</p>}
-      {error && <p id={idError} className="text-xs text-red-700 mt-1">{error}</p>}
+      {ayuda && <p id={idAyuda} className="text-xs text-muted-foreground mt-1">{ayuda}</p>}
+      {error && <p id={idError} role="alert" className="text-xs text-danger mt-1">{error}</p>}
     </div>
   );
 };

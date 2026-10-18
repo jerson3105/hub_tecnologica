@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import api from '../services/api';
 import { resolveMentorPhotoUrl } from '../services/media';
-import Modal from '../components/Modal';
+import Modal, { ModalPie } from '../components/Modal';
 import Button from '../components/ui/Button';
 import IconButton from '../components/ui/IconButton';
 import Badge from '../components/ui/Badge';
@@ -348,12 +348,12 @@ const Mentores = () => {
           <GrupoChips titulo="Startups que puede trabajar" icono={Globe} opciones={STARTUPS_OPTIONS} seleccion={form.startups} onToggle={(v) => toggleArray('startups', v)} color="green" />
           <GrupoChips titulo="ODS en los que se especializa" icono={Target} opciones={ODS_OPTIONS} seleccion={form.ods} onToggle={(v) => toggleArray('ods', v)} color="purple" columnas="" />
 
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-5 border-t border-gray-100">
+          <ModalPie>
             <Button variante="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
             <Button type="submit" cargando={guardando} icono={editando ? Check : Plus}>
               {guardando ? 'Guardando...' : (editando ? 'Actualizar' : 'Crear Mentor')}
             </Button>
-          </div>
+          </ModalPie>
         </form>
       </Modal>
     </div>

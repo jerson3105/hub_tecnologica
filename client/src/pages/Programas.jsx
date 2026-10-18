@@ -7,6 +7,7 @@ import TarjetaPrograma from '../components/programas/TarjetaPrograma';
 import ProgramaFormModal from '../components/programas/ProgramaFormModal';
 import ErrorCarga from '../components/ui/ErrorCarga';
 import Skeleton from '../components/ui/Skeleton';
+import Segmentado from '../components/ui/Segmentado';
 import { TARJETA_CLS, BOTON_PRIMARIO_CLS } from '../components/ui/estilosSemanticos';
 
 // En curso primero, luego los que van a empezar y al final los terminados
@@ -87,24 +88,15 @@ const Programas = () => {
       </header>
 
       {desactivados.length > 0 && (
-        <div className="flex gap-1 rounded-control bg-muted p-1 sm:w-fit" role="group" aria-label="Mostrar programas">
-          {[
+        <Segmentado
+          etiqueta="Mostrar programas"
+          valor={verDesactivados}
+          onCambiar={setVerDesactivados}
+          opciones={[
             { valor: false, texto: `Activos (${activos.length})` },
             { valor: true, texto: `Desactivados (${desactivados.length})` }
-          ].map((o) => (
-            <button
-              key={o.texto}
-              type="button"
-              aria-pressed={verDesactivados === o.valor}
-              onClick={() => setVerDesactivados(o.valor)}
-              className={`min-h-9 flex-1 rounded-[calc(var(--radius-control)-4px)] px-3 text-sm font-semibold transition-colors sm:flex-none ${
-                verDesactivados === o.valor ? 'bg-card text-foreground elevation-1' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {o.texto}
-            </button>
-          ))}
-        </div>
+          ]}
+        />
       )}
 
       {isLoading && <Esqueleto />}

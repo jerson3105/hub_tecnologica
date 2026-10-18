@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
-import Modal from '../Modal';
+import Modal, { ModalPie } from '../Modal';
 import Button from '../ui/Button';
 import { Field, Input, Select, Textarea } from '../ui/Field';
 import { ESTADOS_PROGRAMA } from '../../constants/estados';
@@ -72,10 +72,10 @@ const ProgramaFormModal = ({ programa = null, onClose, onGuardado }) => {
             </Field>
           )}
         </div>
-        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-5 border-t border-gray-100">
+        <ModalPie>
           <Button variante="ghost" onClick={onClose}>Cancelar</Button>
           <Button type="submit" cargando={guardando}>{editando ? 'Guardar cambios' : 'Crear programa'}</Button>
-        </div>
+        </ModalPie>
       </form>
     </Modal>
   );

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import Modal from '../components/Modal';
+import Modal, { ModalPie } from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
 import { Rocket, Users, ClipboardList, FileUp, CalendarDays, AlertCircle, UserPlus, X, Crown, KeyRound, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -243,12 +243,12 @@ const MiEmprendimiento = () => {
             </div>
           </fieldset>
 
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-5 border-t border-gray-100">
+          <ModalPie>
             <Button variante="ghost" onClick={() => setModalIntegrante(false)}>Cancelar</Button>
             <Button type="submit" cargando={agregando} icono={UserPlus}>
               {agregando ? 'Agregando...' : 'Agregar Integrante'}
             </Button>
-          </div>
+          </ModalPie>
         </form>
       </Modal>
 

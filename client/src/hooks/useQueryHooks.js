@@ -47,6 +47,24 @@ export const useEmprendimiento = (id) =>
     enabled: !!id
   });
 
+// Indicadores de salud (última reunión, compromisos, OKR, asistencia, equipo). Claves bajo
+// 'emprendimientos' / 'emprendimiento' para que invalidate también los refresque.
+export const useEmprendimientosResumen = () =>
+  useQuery({
+    queryKey: ['emprendimientos', 'resumen'],
+    queryFn: () => api.get('/emprendimientos/resumen').then(r => r.data),
+    staleTime: 0
+  });
+
+export const useEmprendimientoResumen = (id) =>
+  useQuery({
+    queryKey: ['emprendimiento', id, 'resumen'],
+    queryFn: () => api.get(`/emprendimientos/${id}/resumen`).then(r => r.data),
+    enabled: !!id,
+    staleTime: 0,
+    retry: (intentos, error) => ![403, 404].includes(error?.response?.status) && intentos < 1
+  });
+
 // ─── Sesiones ───
 export const useSesiones = (params = {}) =>
   useQuery({

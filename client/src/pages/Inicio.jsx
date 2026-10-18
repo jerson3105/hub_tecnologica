@@ -10,7 +10,8 @@ import TablaCartera from '../components/inicio/TablaCartera';
 import PulsoInicio from '../components/inicio/PulsoInicio';
 import ErrorCarga from '../components/ui/ErrorCarga';
 import Skeleton from '../components/ui/Skeleton';
-import { TARJETA_CLS, BOTON_PRIMARIO_CLS, BOTON_SECUNDARIO_CLS, SELECT_CLS } from '../components/ui/estilosSemanticos';
+import { TARJETA_CLS, BOTON_PRIMARIO_CLS, BOTON_SECUNDARIO_CLS } from '../components/ui/estilosSemanticos';
+import { FILTRO_CLS } from '../components/ui/estilos';
 
 const plural = (n, uno, varios) => (n === 1 ? uno : varios);
 
@@ -113,7 +114,7 @@ const Inicio = () => {
             <select
               value={programaId}
               onChange={(e) => cambiarPrograma(e.target.value)}
-              className={SELECT_CLS}
+              className={FILTRO_CLS}
               disabled={!data}
             >
               <option value="">Todos</option>

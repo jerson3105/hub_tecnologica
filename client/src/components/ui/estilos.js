@@ -5,35 +5,37 @@
 // (w-*, px-*, color de texto...) no la sobrescribe de forma fiable. Las variaciones van aquí,
 // como variante o tono, no como className.
 
-// Campos: texto de 16px en móvil (evita el zoom de iOS al enfocar) y 14px desde sm;
-// borde gray-300 (el gray-200 anterior apenas se distinguía del fondo).
-export const CAMPO_CLS = 'w-full px-4 py-2.5 border border-gray-300 rounded-xl bg-white text-base sm:text-sm text-brand-dark placeholder:text-gray-500 outline-none transition-colors focus:border-brand-cyan-ink focus:ring-2 focus:ring-brand-cyan/40 disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed';
+// Todas las clases usan los roles semánticos del sistema visual (responden al modo oscuro).
+//
+// Campos: texto de 16px en móvil (evita el zoom de iOS al enfocar) y 14px desde sm; borde con el
+// rol «input» (≥ 3:1 sobre el fondo, como pide WCAG para los controles).
+export const CAMPO_CLS = 'w-full min-h-10 px-3.5 py-2 border border-input rounded-control bg-card text-base sm:text-sm text-foreground placeholder:text-subtle-foreground outline-none transition-colors hover:border-petroleo-500 focus:border-ring focus:ring-2 focus:ring-ring/30 aria-[invalid=true]:border-danger disabled:bg-muted disabled:text-muted-foreground disabled:opacity-80 disabled:cursor-not-allowed';
 
 // Filtros de cabecera (selects sueltos junto a un botón): ancho completo en móvil y el de su
 // contenido desde sm. Añadir "w-auto" a CAMPO_CLS no basta: en el CSS generado gana w-full.
 export const FILTRO_CLS = CAMPO_CLS.replace('w-full', 'w-full sm:w-auto');
 
-export const ETIQUETA_CLS = 'block text-sm font-semibold text-brand-dark mb-1.5';
+export const ETIQUETA_CLS = 'block text-sm font-semibold text-foreground mb-1.5';
 
 // Colores de texto con fondo suave al pasar el ratón. Los usan IconButton y la variante
 // "texto" de Button.
 const TONOS_TEXTO = {
-  neutral: 'text-gray-600 hover:bg-gray-100',
-  brand: 'text-brand-dark hover:bg-brand-cyan/10',
-  cyan: 'text-brand-cyan-ink hover:bg-brand-cyan/10',
-  purple: 'text-brand-purple hover:bg-brand-purple/10',
-  success: 'text-brand-green-ink hover:bg-brand-green/10',
-  danger: 'text-red-600 hover:bg-red-50'
+  neutral: 'text-muted-foreground hover:bg-muted hover:text-foreground',
+  brand: 'text-foreground hover:bg-muted',
+  cyan: 'text-link hover:bg-info-soft',
+  purple: 'text-programa hover:bg-programa-soft',
+  success: 'text-success hover:bg-success-soft',
+  danger: 'text-danger hover:bg-danger-soft'
 };
 
 const VARIANTES_BOTON = {
-  primary: 'bg-brand-dark text-white hover:bg-brand-dark/90 shadow-sm hover:shadow-md',
-  accent: 'bg-brand-cyan text-brand-dark hover:bg-brand-cyan/90 shadow-sm hover:shadow-md',
-  success: 'bg-brand-green text-brand-dark hover:bg-brand-green/90 shadow-sm',
-  amber: 'bg-amber-500 text-brand-dark hover:bg-amber-400 shadow-sm',
-  secondary: 'border border-gray-300 bg-white text-brand-dark hover:bg-gray-50',
-  ghost: 'text-gray-600 hover:bg-gray-100',
-  danger: 'bg-red-600 text-white hover:bg-red-700 shadow-sm'
+  primary: 'bg-primary text-primary-foreground hover:bg-primary-hover',
+  accent: 'bg-brand text-brand-foreground hover:bg-brand-hover',
+  success: 'bg-success-solid text-success-solid-foreground hover:bg-success-solid/90',
+  amber: 'bg-warning-solid text-warning-solid-foreground hover:bg-warning-solid/90',
+  secondary: 'border border-input bg-card text-foreground hover:bg-muted',
+  ghost: 'text-muted-foreground hover:bg-muted hover:text-foreground',
+  danger: 'bg-danger-solid text-danger-solid-foreground hover:bg-danger-solid/90'
 };
 
 const TAMANIOS_BOTON = {
@@ -55,31 +57,31 @@ export const clasesBoton = ({ variante = 'primary', tamanio = 'md', tono = 'cyan
   const aspecto = esTexto
     ? `${TONOS_TEXTO[tono] || TONOS_TEXTO.cyan} ${TAMANIOS_TEXTO[tamanio] || TAMANIOS_TEXTO.md}`
     : `${VARIANTES_BOTON[variante] || VARIANTES_BOTON.primary} ${TAMANIOS_BOTON[tamanio] || TAMANIOS_BOTON.md}`;
-  return `inline-flex items-center justify-center ${esTexto ? 'gap-1.5' : 'gap-2'} rounded-xl font-medium whitespace-nowrap transition-all disabled:opacity-50 disabled:cursor-not-allowed ${aspecto} ${className}`.trim();
+  return `inline-flex items-center justify-center ${esTexto ? 'gap-1.5' : 'gap-2'} rounded-control font-medium whitespace-nowrap transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${aspecto} ${className}`.trim();
 };
 
 // Área táctil mínima de 40px (44px en pantallas táctiles)
 export const clasesIconButton = ({ tono = 'neutral', className = '' } = {}) =>
-  `inline-flex items-center justify-center min-w-10 min-h-10 [@media(pointer:coarse)]:min-w-11 [@media(pointer:coarse)]:min-h-11 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${TONOS_TEXTO[tono] || TONOS_TEXTO.neutral} ${className}`.trim();
+  `inline-flex items-center justify-center min-w-10 min-h-10 [@media(pointer:coarse)]:min-w-11 [@media(pointer:coarse)]:min-h-11 rounded-control transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${TONOS_TEXTO[tono] || TONOS_TEXTO.neutral} ${className}`.trim();
 
 export const TONOS_BADGE = {
-  neutral: 'bg-gray-100 text-gray-700',
-  cyan: 'bg-brand-cyan-light text-brand-cyan-ink',
-  green: 'bg-brand-green-light text-brand-green-ink',
-  purple: 'bg-brand-purple-light text-brand-purple',
-  blue: 'bg-blue-100 text-blue-800',
-  pink: 'bg-pink-100 text-pink-800',
-  amber: 'bg-amber-100 text-amber-800',
-  red: 'bg-red-100 text-red-700'
+  neutral: 'bg-muted text-foreground',
+  cyan: 'bg-info-soft text-info-soft-foreground',
+  green: 'bg-success-soft text-success-soft-foreground',
+  purple: 'bg-programa-soft text-programa-soft-foreground',
+  blue: 'bg-azul-soft text-azul-soft-foreground',
+  pink: 'bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-200',
+  amber: 'bg-warning-soft text-warning-soft-foreground',
+  red: 'bg-danger-soft text-danger-soft-foreground'
 };
 
 export const PUNTOS_BADGE = {
-  neutral: 'bg-gray-400',
-  cyan: 'bg-brand-cyan',
-  green: 'bg-brand-green',
-  purple: 'bg-brand-purple',
-  blue: 'bg-blue-500',
+  neutral: 'bg-input',
+  cyan: 'bg-info-solid',
+  green: 'bg-success-solid',
+  purple: 'bg-programa-solid',
+  blue: 'bg-azul-solid',
   pink: 'bg-pink-500',
-  amber: 'bg-amber-500',
-  red: 'bg-red-500'
+  amber: 'bg-warning-solid',
+  red: 'bg-danger-solid'
 };

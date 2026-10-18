@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import api from '../services/api';
-import Modal from '../components/Modal';
+import Modal, { ModalPie } from '../components/Modal';
 import { Plus, Edit, KeyRound, Users, UserCheck, UserX, Copy, Search, ChevronLeft, ChevronRight, FolderKanban, UserPlus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
@@ -411,12 +411,12 @@ const Usuarios = () => {
             </div>
           </fieldset>
 
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-5 border-t border-gray-100">
+          <ModalPie>
             <Button variante="ghost" onClick={() => setModalOpen(false)}>{passwordGenerado ? 'Cerrar' : 'Cancelar'}</Button>
             {!passwordGenerado && (
               <Button type="submit" cargando={guardandoUsuario}>{editando ? 'Actualizar' : 'Crear Usuario'}</Button>
             )}
-          </div>
+          </ModalPie>
         </form>
       </Modal>
 

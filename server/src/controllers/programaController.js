@@ -1,13 +1,11 @@
-const {
-  Programa, Emprendimiento, Sesion, SesionPrograma, Seguimiento, Compromiso, Integrante, Objetivo,
-  ResultadoClave, ActividadOKR, Asistencia, Nps
-} = require('../models');
+const { Programa, Emprendimiento, Sesion, SesionPrograma, Nps } = require('../models');
 const { Op } = require('sequelize');
 const { paginate, paginatedResponse } = require('../utils/pagination');
 const logger = require('../utils/logger');
 const { hoyLocal } = require('../utils/fechas');
 const { programasDe, indexarAsistencias } = require('../services/inicio');
 const { resumirPrograma } = require('../services/programas');
+const { cargarFilasDeEmprendimientos } = require('../services/cargaSeguimiento');
 
 const crear = async (req, res) => {
   try {
@@ -146,10 +144,9 @@ const cargarDatosDeProgramas = async (programaIds, hoy) => {
     }),
     SesionPrograma.findAll({ where: { programa_id: programaIds }, attributes: ['sesion_id'] })
   ]);
-  const empIds = emprendimientos.map((e) => e.id);
   const idsPuente = [...new Set(puente.map((p) => p.sesion_id))];
 
-  const [sesiones, seguimientos, integrantes, objetivos, nps] = await Promise.all([
+  const [sesiones, nps] = await Promise.all([
     Sesion.findAll({
       // Sesiones antiguas (programa_id) y multi-programa (tabla puente)
       where: { [Op.or]: [{ programa_id: programaIds }, ...(idsPuente.length ? [{ id: idsPuente }] : [])] },
@@ -157,31 +154,14 @@ const cargarDatosDeProgramas = async (programaIds, hoy) => {
       include: [{ model: Programa, as: 'programas', through: { attributes: [] }, attributes: ['id', 'nombre'] }],
       order: [['fecha', 'ASC'], ['id', 'ASC']]
     }),
-    empIds.length ? Seguimiento.findAll({
-      where: { emprendimiento_id: empIds },
-      attributes: ['id', 'sesion_id', 'emprendimiento_id', 'realizado'],
-      include: [
-        { model: Sesion, as: 'sesion', attributes: ['id', 'titulo', 'fecha', 'tipo'] },
-        { model: Compromiso, as: 'compromisoItems', attributes: ['id', 'estado'] }
-      ]
-    }) : [],
-    empIds.length ? Integrante.findAll({ where: { emprendimiento_id: empIds }, attributes: ['emprendimiento_id', 'usuario_id'] }) : [],
-    empIds.length ? Objetivo.findAll({
-      where: { emprendimiento_id: empIds, activo: true },
-      attributes: ['id', 'emprendimiento_id'],
-      include: [{
-        model: ResultadoClave, as: 'resultadosClave', attributes: ['id'],
-        include: [{ model: ActividadOKR, as: 'actividades', attributes: ['meta_numerica', 'meta_real', 'estado'] }]
-      }]
-    }) : [],
     Nps.findAll({ where: { programa_id: programaIds }, attributes: ['id', 'sesion_id', 'programa_id', 'usuario_id', 'puntuacion'] })
   ]);
 
-  const idsHastaHoy = sesiones.filter((s) => s.fecha <= hoy).map((s) => s.id);
-  const asistencias = idsHastaHoy.length
-    ? await Asistencia.findAll({ where: { sesion_id: idsHastaHoy }, attributes: ['sesion_id', 'usuario_id', 'presente'] })
-    : [];
-  return { emprendimientos, sesiones, seguimientos, integrantes, objetivos, nps, asistencias };
+  // La asistencia de todas las sesiones del programa ya ocurridas (no solo las que tienen fila)
+  const filas = await cargarFilasDeEmprendimientos(emprendimientos.map((e) => e.id), hoy, {
+    sesionesExtra: sesiones.filter((s) => s.fecha <= hoy).map((s) => s.id)
+  });
+  return { emprendimientos, sesiones, nps, ...filas };
 };
 
 // Las filas de un solo programa. La asistencia cuenta solo a sus integrantes: en una sesión

@@ -16,6 +16,11 @@ router.get('/', emprendimientoController.listar);
 
 router.get('/mi-emprendimiento', emprendimientoController.miEmprendimiento);
 
+// Indicadores de salud. El listado es del equipo técnico; el detalle, también de sus integrantes.
+// Antes de /:id para que «resumen» no se tome como id.
+router.get('/resumen', esAdmin, emprendimientoController.listarResumen);
+router.get('/:id/resumen', emprendimientoController.obtenerResumen);
+
 router.get('/:id', emprendimientoController.obtenerPorId);
 
 router.put('/:id', esAdmin, emprendimientoController.actualizar);

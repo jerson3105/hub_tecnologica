@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
-import Modal from '../components/Modal';
+import Modal, { ModalPie } from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Edit, Trash2, Eye, CalendarDays, Video, Star, AlertCircle, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -323,10 +323,10 @@ const Sesiones = () => {
           <Field label="Enlace de grabación">
             <Input type="url" value={form.enlace_grabacion} onChange={(e) => setForm({...form, enlace_grabacion: e.target.value})} placeholder="https://..." />
           </Field>
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-5 border-t border-gray-100">
+          <ModalPie>
             <Button variante="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
             <Button type="submit" cargando={guardando}>{editando ? "Actualizar" : "Crear Sesión"}</Button>
-          </div>
+          </ModalPie>
         </form>
       </Modal>
     </div>

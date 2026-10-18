@@ -21,9 +21,6 @@ export const iconoBotonCls = (tono = 'neutral') =>
 // Chip pequeño de estado o tipo (fondo suave del tono)
 export const CHIP_CLS = 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-chip px-2 py-0.5 text-xs font-semibold';
 
-// Select con los roles semánticos (CAMPO_CLS aún usa los colores de la interfaz anterior)
-export const SELECT_CLS = 'h-10 w-full rounded-control border border-input bg-card px-3 text-base text-foreground sm:w-auto sm:text-sm';
-
 // Enlace de acción en línea (text-link con fondo suave al pasar el ratón)
 export const ACCION_CLS = 'inline-flex min-h-9 items-center gap-1 whitespace-nowrap rounded-control px-2.5 text-sm font-semibold text-link transition-colors hover:bg-info-soft';
 

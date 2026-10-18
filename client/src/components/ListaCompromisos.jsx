@@ -11,7 +11,7 @@ const ListaCompromisos = ({ seguimiento }) => {
     return (
       <div className="mb-2">
         <p className="eyebrow">Compromisos</p>
-        <p className="text-sm text-gray-700 mt-0.5 whitespace-pre-line">{seguimiento.compromisos}</p>
+        <p className="text-sm text-foreground mt-0.5 whitespace-pre-line">{seguimiento.compromisos}</p>
       </div>
     );
   }
@@ -21,7 +21,7 @@ const ListaCompromisos = ({ seguimiento }) => {
       <p className="eyebrow">Compromisos ({items.length})</p>
       <ul className="mt-1 space-y-1.5">
         {items.map(c => (
-          <li key={c.id} className="flex items-start justify-between gap-3 text-sm text-gray-700">
+          <li key={c.id} className="flex items-start justify-between gap-3 text-sm text-foreground">
             <span className="min-w-0">{c.descripcion}</span>
             <BadgeDe mapa={ESTADOS_ACTIVIDAD} valor={c.estado} forma="tag" className="shrink-0" />
           </li>
