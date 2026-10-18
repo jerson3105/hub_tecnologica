@@ -61,18 +61,24 @@ export const registrarFuentes = () => {
   registradas = true;
 };
 
+// onload y no decode(): decode() no resuelve en una pestaña en segundo plano. Con límite de
+// espera: una imagen externa que no responde no debe dejar el PDF colgado.
+const cargarImagen = (src, { anonima = false, espera = 8000 } = {}) => new Promise((ok, falla) => {
+  const img = new Image();
+  // Sin CORS el navegador no deja leer la imagen en un canvas: así falla ya al cargarla
+  if (anonima) img.crossOrigin = 'anonymous';
+  const limite = setTimeout(() => falla(new Error('La imagen tardó demasiado')), espera);
+  img.onload = () => { clearTimeout(limite); ok(img); };
+  img.onerror = () => { clearTimeout(limite); falla(new Error('No se pudo cargar la imagen')); };
+  img.src = src;
+});
+
 // El logo (public/logo.png) tiene mucho margen transparente arriba: se recorta a su contenido
 // una vez y se reutiliza como data URL.
 let logoRecortado = null;
 export const cargarLogo = async () => {
   if (logoRecortado) return logoRecortado;
-  const img = new Image();
-  // onload y no decode(): decode() no resuelve en una pestaña en segundo plano
-  await new Promise((ok, falla) => {
-    img.onload = ok;
-    img.onerror = () => falla(new Error('No se pudo cargar el logo'));
-    img.src = '/logo.png';
-  });
+  const img = await cargarImagen('/logo.png');
   const lienzo = document.createElement('canvas');
   lienzo.width = img.naturalWidth;
   lienzo.height = img.naturalHeight;
@@ -96,4 +102,35 @@ export const cargarLogo = async () => {
   recorte.getContext('2d').drawImage(lienzo, x0, y0, recorte.width, recorte.height, 0, 0, recorte.width, recorte.height);
   logoRecortado = { src: recorte.toDataURL('image/png'), proporcion: recorte.width / recorte.height };
   return logoRecortado;
+};
+
+// Un enlace de Google Drive («…/file/d/ID/view», «…/open?id=ID») abre la página del archivo, no la
+// imagen: se prueba antes su versión directa.
+const ID_DRIVE = /drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:.*&)?id=)([\w-]+)/;
+const LADO_MAXIMO = 480;
+
+// Logo del proyecto (el enlace que pega el equipo en su One Pager). Pasa por un canvas, reducido,
+// para dárselo a react-pdf como data URL. Si no carga (no es una imagen, el servidor no permite
+// CORS o no responde) devuelve null y el PDF sale sin él.
+export const cargarImagenExterna = async (url) => {
+  const enlace = (url || '').trim();
+  if (!enlace) return null;
+  const direccion = /^https?:\/\//i.test(enlace) ? enlace : `https://${enlace}`;
+  const idDrive = ID_DRIVE.exec(direccion)?.[1];
+  const candidatos = idDrive ? [`https://lh3.googleusercontent.com/d/${idDrive}`, direccion] : [direccion];
+  for (const src of candidatos) {
+    try {
+      const img = await cargarImagen(src, { anonima: true });
+      if (!img.naturalWidth || !img.naturalHeight) continue;
+      const escala = Math.min(1, LADO_MAXIMO / Math.max(img.naturalWidth, img.naturalHeight));
+      const lienzo = document.createElement('canvas');
+      lienzo.width = Math.max(1, Math.round(img.naturalWidth * escala));
+      lienzo.height = Math.max(1, Math.round(img.naturalHeight * escala));
+      lienzo.getContext('2d').drawImage(img, 0, 0, lienzo.width, lienzo.height);
+      return { src: lienzo.toDataURL('image/png'), proporcion: lienzo.width / lienzo.height };
+    } catch {
+      // siguiente candidato
+    }
+  }
+  return null;
 };

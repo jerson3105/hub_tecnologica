@@ -95,25 +95,44 @@ const Trazo = () => (
   </Svg>
 );
 
-export const Portada = ({ logo, eyebrow, titulo, subtitulo, meta = [] }) => (
-  <View>
-    <View style={{ marginBottom: 18 }}><Marca logo={logo} alto={30} /></View>
-    <Text style={s.eyebrow}>{eyebrow}</Text>
-    <Text style={s.titulo}>{titulo}</Text>
-    {subtitulo ? <Text style={s.subtitulo}>{subtitulo}</Text> : null}
-    {meta.length > 0 && (
-      <View style={s.meta}>
-        {meta.filter(([, valor]) => valor).map(([etiqueta, valor]) => (
-          <View key={etiqueta} style={s.metaItem}>
-            <Text style={s.metaEtiqueta}>{etiqueta}</Text>
-            <Text style={s.metaValor}>{valor}</Text>
-          </View>
-        ))}
-      </View>
-    )}
-    <Trazo />
-  </View>
-);
+// Imagen propia del documento (el logo de un proyecto) a la derecha del título, dentro de una caja
+// de 120 × 60 pt como máximo
+const ImagenPortada = ({ imagen }) => {
+  const alto = Math.min(60, 120 / imagen.proporcion);
+  return <Image src={imagen.src} style={{ height: alto, width: alto * imagen.proporcion, marginLeft: 16 }} />;
+};
+
+export const Portada = ({ logo, eyebrow, titulo, subtitulo, meta = [], imagen = null }) => {
+  const encabezado = (
+    <>
+      <Text style={s.eyebrow}>{eyebrow}</Text>
+      <Text style={s.titulo}>{titulo}</Text>
+      {subtitulo ? <Text style={s.subtitulo}>{subtitulo}</Text> : null}
+    </>
+  );
+  return (
+    <View>
+      <View style={{ marginBottom: 18 }}><Marca logo={logo} alto={30} /></View>
+      {imagen ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>{encabezado}</View>
+          <ImagenPortada imagen={imagen} />
+        </View>
+      ) : encabezado}
+      {meta.length > 0 && (
+        <View style={s.meta}>
+          {meta.filter(([, valor]) => valor).map(([etiqueta, valor]) => (
+            <View key={etiqueta} style={s.metaItem}>
+              <Text style={s.metaEtiqueta}>{etiqueta}</Text>
+              <Text style={s.metaValor}>{valor}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+      <Trazo />
+    </View>
+  );
+};
 
 // Sección con título. `unida`: las secciones cortas (cifras, gráficos) pasan enteras a la página
 // siguiente en vez de partirse. Las largas se parten, pero el título viaja siempre con su primer
