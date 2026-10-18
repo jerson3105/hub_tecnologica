@@ -1,6 +1,7 @@
 const { Compromiso, Seguimiento, Sesion, Emprendimiento, Programa, Archivo } = require('../models');
 const logger = require('../utils/logger');
 const { puedeAccederEmprendimiento, denegar, esAdmin } = require('../utils/acceso');
+const { seguimientosVisibles } = require('../utils/privacidad');
 
 const obtenerPorSeguimiento = async (req, res) => {
   try {
@@ -41,6 +42,8 @@ const obtenerPendientesPorEmprendimiento = async (req, res) => {
       include: [{
         model: Seguimiento,
         as: 'seguimientoOrigen',
+        // Solo lo que identifica la sesión de origen: sin los campos internos del seguimiento
+        attributes: ['id', 'sesion_id', 'emprendimiento_id'],
         include: [{
           model: Sesion,
           as: 'sesion',
@@ -212,7 +215,8 @@ const timelineEmprendimiento = async (req, res) => {
       );
     });
 
-    res.json({ seguimientos: resultado });
+    // Los campos internos (observaciones…) no se le envían al emprendedor
+    res.json({ seguimientos: seguimientosVisibles(req.usuario, resultado) });
   } catch (error) {
     logger.error('Error al obtener timeline', { error: error.message });
     res.status(500).json({ mensaje: 'Error al obtener timeline' });

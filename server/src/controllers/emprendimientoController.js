@@ -9,6 +9,7 @@ const { cargarFilasDeEmprendimientos } = require('../services/cargaSeguimiento')
 const { indexarAsistencias, construirCartera, agruparPor } = require('../services/inicio');
 const { hoyLocal } = require('../utils/fechas');
 const { puedeAccederEmprendimiento } = require('../utils/acceso');
+const { seguimientosVisibles } = require('../utils/privacidad');
 
 // Crea los seguimientos del emprendimiento para las sesiones de su programa. Si falla no se
 // pierde el cambio: el timeline muestra las sesiones igualmente y el registro se crea al editarlo.
@@ -129,7 +130,10 @@ const obtenerPorId = async (req, res) => {
       }
     }
 
-    res.json({ emprendimiento });
+    // Los campos internos de los seguimientos (observaciones…) no se le envían al emprendedor
+    const datos = emprendimiento.toJSON();
+    datos.seguimientos = seguimientosVisibles(req.usuario, datos.seguimientos);
+    res.json({ emprendimiento: datos });
   } catch (error) {
     logger.error('Error al obtener emprendimiento:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });

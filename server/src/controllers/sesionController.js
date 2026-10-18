@@ -2,6 +2,7 @@ const { Sesion, SesionPrograma, Programa, Seguimiento, Emprendimiento, Asistenci
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
 const { puedeAccederSesion, emprendimientoIdsDeUsuario } = require('../utils/acceso');
+const { seguimientosVisibles } = require('../utils/privacidad');
 const { asegurarSeguimientosDeSesion } = require('../services/seguimientos');
 
 // Crea el seguimiento de cada emprendimiento de los programas de la sesión. Si falla no se
@@ -181,7 +182,10 @@ const obtenerPorId = async (req, res) => {
       sesion.setDataValue('archivos', archivosFiltrados);
     }
 
-    res.json({ sesion });
+    // Los campos internos de los seguimientos (observaciones…) no se le envían al emprendedor
+    const datos = sesion.toJSON();
+    datos.seguimientos = seguimientosVisibles(req.usuario, datos.seguimientos);
+    res.json({ sesion: datos });
   } catch (error) {
     logger.error('Error al obtener sesión:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });

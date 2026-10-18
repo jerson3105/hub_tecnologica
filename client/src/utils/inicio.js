@@ -81,7 +81,7 @@ export const asuntoDe = (item) => {
         titulo: `${item.total} BMC con versión nueva sin feedback`,
         detalle: listaNombres(item.emprendimientos || [], item.total),
         accion: 'Revisar',
-        to: `/emprendimientos/${item.emprendimientos?.[0]?.id}`
+        to: `/emprendimientos/${item.emprendimientos?.[0]?.id}?tab=bmc`
       };
     case 'detractores':
       return {
