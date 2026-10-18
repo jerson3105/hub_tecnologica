@@ -26,8 +26,9 @@ const REDES = [
 
 const ENLACE_CLS = 'inline-flex min-h-9 items-center gap-1.5 rounded-control border border-border px-3 text-[13px] font-medium text-link transition-colors hover:bg-muted';
 
-// One Pager del emprendimiento en lectura, con lo que falta por completar y la descarga en PDF
-const OnePagerVista = ({ emprendimiento }) => {
+// One Pager del emprendimiento en lectura, con lo que falta por completar y la descarga en PDF.
+// `accion`: botón extra (p. ej. «Editar One Pager» para el propio equipo).
+const OnePagerVista = ({ emprendimiento, accion = null }) => {
   const [generando, setGenerando] = useState(false);
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['onePager', String(emprendimiento.id)],
@@ -62,8 +63,9 @@ const OnePagerVista = ({ emprendimiento }) => {
     return (
       <div className={`${TARJETA_CLS} grid justify-items-center gap-3 px-5 py-10 text-center`}>
         <span className="grid size-12 place-items-center rounded-card bg-muted text-muted-foreground"><FileText size={24} aria-hidden="true" /></span>
-        <p className="font-semibold">El equipo aún no ha empezado su One Pager</p>
-        <p className="text-sm text-muted-foreground">Lo completan los integrantes desde su cuenta.</p>
+        <p className="font-semibold">{accion ? 'Aún no han empezado su One Pager' : 'El equipo aún no ha empezado su One Pager'}</p>
+        <p className="text-sm text-muted-foreground">{accion ? 'Cuenta en una página qué problema resuelven y cómo: lo usan los mentores y el match con IA.' : 'Lo completan los integrantes desde su cuenta.'}</p>
+        {accion}
       </div>
     );
   }
@@ -79,9 +81,12 @@ const OnePagerVista = ({ emprendimiento }) => {
           <span className={`${CHIP_CLS} ${FONDO_TONO[completo ? 'success' : 'warning']}`}>{completo ? 'Completo' : 'Incompleto'}</span>
           {onePager.estado_proyecto && <span className={`${CHIP_CLS} ${FONDO_TONO.info}`}>{onePager.estado_proyecto}</span>}
         </div>
-        {completo && (
-          <Button variante="secondary" tamanio="sm" icono={Download} cargando={generando} onClick={descargar}>Descargar PDF</Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {completo && (
+            <Button variante="secondary" tamanio="sm" icono={Download} cargando={generando} onClick={descargar}>Descargar PDF</Button>
+          )}
+          {accion}
+        </div>
       </div>
 
       {onePager.descripcion && <p className="max-w-3xl text-[15px] leading-relaxed">{onePager.descripcion}</p>}

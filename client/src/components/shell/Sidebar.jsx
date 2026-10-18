@@ -1,7 +1,8 @@
-import { NavLink, Link } from 'react-router-dom';
+import { NavLink, Link, useLocation } from 'react-router-dom';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useLogo } from '../../utils/logo';
 import Espiral from './Espiral';
+import { activoPorRuta } from './navegacion';
 
 // Contador o marca de un enlace (p. ej. asuntos del Inicio, evaluaciones pendientes)
 export const Contador = ({ valor, enRail = false }) => {
@@ -25,9 +26,12 @@ const textoContador = (valor) => (valor === '!' ? ' (pendiente)' : valor ? ` (${
 // enfocar); en escritorio, expandida y plegable a rail por el usuario (se recuerda).
 const Sidebar = ({ nav, plegado, onPlegar, conteos }) => {
   const logo = useLogo('negativo');
+  const { pathname } = useLocation();
   // Etiqueta visible solo expandida; en rail queda para el lector y como globo al pasar
   const etiqueta = plegado ? 'sr-only' : 'sr-only lg:not-sr-only';
-  const globo = plegado ? '' : 'lg:hidden';
+  // El globo solo existe en rail: en escritorio expandido el nombre ya se ve. (Con group-hover:block
+  // + lg:hidden ganaba el primero y el globo aparecía al pasar el ratón, con scroll horizontal.)
+  const globo = plegado ? 'group-hover:block group-focus-within:block' : 'max-lg:group-hover:block max-lg:group-focus-within:block';
 
   return (
     <aside
@@ -66,9 +70,10 @@ const Sidebar = ({ nav, plegado, onPlegar, conteos }) => {
                   <li key={e.to} className="group relative">
                     <NavLink
                       to={e.to}
+                      aria-current={activoPorRuta(e, pathname) ? 'page' : undefined}
                       className={({ isActive }) => `relative flex h-10 items-center gap-3 rounded-control px-3 text-sm font-medium transition-colors ${
                         plegado ? 'justify-center' : 'justify-center lg:justify-start'
-                      } ${isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-white/[0.06] hover:text-white'}`}
+                      } ${isActive || activoPorRuta(e, pathname) ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground hover:bg-white/[0.06] hover:text-white'}`}
                     >
                       <Icono size={20} aria-hidden="true" className="shrink-0" />
                       <span className={etiqueta}>{e.label}{textoContador(valor) && <span className="sr-only">{textoContador(valor)}</span>}</span>
@@ -77,7 +82,7 @@ const Sidebar = ({ nav, plegado, onPlegar, conteos }) => {
                       <span className={plegado ? 'contents' : 'contents lg:hidden'}><Contador valor={valor} enRail /></span>
                     </NavLink>
                     <span
-                      className={`pointer-events-none absolute left-full top-1/2 z-40 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-control bg-popover px-2.5 py-1.5 text-[13px] font-medium text-popover-foreground elevation-2 group-hover:block group-focus-within:block ${globo}`}
+                      className={`pointer-events-none absolute left-full top-1/2 z-40 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-control bg-popover px-2.5 py-1.5 text-[13px] font-medium text-popover-foreground elevation-2 ${globo}`}
                       aria-hidden="true"
                     >
                       {e.label}

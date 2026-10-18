@@ -489,8 +489,9 @@ const proximaSesionDe = async (programaId, hoy) => {
   const ids = puente.map((p) => p.sesion_id);
   return Sesion.findOne({
     where: { fecha: { [Op.gte]: hoy }, [Op.or]: [{ programa_id: programaId }, ...(ids.length ? [{ id: ids }] : [])] },
-    attributes: ['id', 'titulo', 'fecha', 'tipo'],
-    order: [['fecha', 'ASC'], ['id', 'ASC']]
+    // Hora, modalidad y enlace: el emprendedor ve «Unirse» en su página
+    attributes: ['id', 'titulo', 'fecha', 'tipo', 'hora_inicio', 'hora_fin', 'modalidad', 'lugar', 'enlace_reunion'],
+    order: [['fecha', 'ASC'], ['hora_inicio', 'ASC'], ['id', 'ASC']]
   });
 };
 

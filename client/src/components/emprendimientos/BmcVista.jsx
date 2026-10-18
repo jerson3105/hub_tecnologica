@@ -24,8 +24,10 @@ const BLOQUES = [
   { clave: 'fuentes_ingresos', etiqueta: 'Fuentes de ingresos', tono: 'success', celda: 'lg:col-span-5' }
 ];
 
-// Business Model Canvas en lectura, con selector de versión y feedback del equipo técnico
-const BmcVista = ({ emprendimientoId }) => {
+// Business Model Canvas en lectura, con selector de versión y feedback del equipo técnico.
+// `puedeOpinar` (equipo técnico) muestra el formulario de feedback; el emprendedor ve el que recibió
+// y `accion` (p. ej. «Editar BMC»).
+const BmcVista = ({ emprendimientoId, puedeOpinar = true, accion = null }) => {
   const queryClient = useQueryClient();
   const [seleccionId, setSeleccionId] = useState(null);
   const [borradores, setBorradores] = useState({});
@@ -70,13 +72,17 @@ const BmcVista = ({ emprendimientoId }) => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <h2 id="t-bmc" className={TITULO_BLOQUE_CLS}>Business Model Canvas</h2>
-          {bmc && !bmc.feedback && <span className={`${CHIP_CLS} ${FONDO_TONO.warning}`}>Sin feedback</span>}
+          {bmc && !bmc.feedback && puedeOpinar && <span className={`${CHIP_CLS} ${FONDO_TONO.warning}`}>Sin feedback</span>}
+          {bmc?.feedback && !puedeOpinar && <span className={`${CHIP_CLS} ${FONDO_TONO.programa}`}>Con feedback</span>}
         </div>
-        {versiones.length > 1 && (
-          <select aria-label="Versión del Business Model Canvas" value={idActivo || ''} onChange={(e) => setSeleccionId(Number(e.target.value))} className={FILTRO_CLS}>
-            {versiones.map((v) => <option key={v.id} value={v.id}>v{v.version} — {v.nombre || `Versión ${v.version}`}</option>)}
-          </select>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {versiones.length > 1 && (
+            <select aria-label="Versión del Business Model Canvas" value={idActivo || ''} onChange={(e) => setSeleccionId(Number(e.target.value))} className={FILTRO_CLS}>
+              {versiones.map((v) => <option key={v.id} value={v.id}>v{v.version} — {v.nombre || `Versión ${v.version}`}</option>)}
+            </select>
+          )}
+          {accion}
+        </div>
       </div>
 
       {(cargandoVersiones || (idActivo && cargandoBmc)) ? (
@@ -86,7 +92,7 @@ const BmcVista = ({ emprendimientoId }) => {
       ) : !bmc ? (
         <div className="grid justify-items-center gap-3 py-8 text-center">
           <span className="grid size-12 place-items-center rounded-card bg-muted text-muted-foreground"><LayoutGrid size={24} aria-hidden="true" /></span>
-          <p className="font-semibold">El equipo aún no ha creado su Business Model Canvas</p>
+          <p className="font-semibold">{puedeOpinar ? 'El equipo aún no ha creado su Business Model Canvas' : 'Aún no han creado su Business Model Canvas'}</p>
         </div>
       ) : (
         <>
@@ -103,11 +109,12 @@ const BmcVista = ({ emprendimientoId }) => {
 
           {bmc.feedback && bmc.feedback_fecha && (
             <div className="rounded-control border border-border bg-programa-soft/50 p-4">
-              <p className="eyebrow">Feedback enviado el {formatFecha(bmc.feedback_fecha)}</p>
+              <p className="eyebrow">{puedeOpinar ? 'Feedback enviado' : 'Feedback del equipo técnico'} el {formatFecha(bmc.feedback_fecha)}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm">{bmc.feedback}</p>
             </div>
           )}
 
+          {puedeOpinar && (
           <div className="grid gap-3 border-t border-border pt-4">
             <Field label="Feedback para el equipo" ayuda="Lo verán al abrir esta versión de su BMC.">
               <Textarea
@@ -122,6 +129,7 @@ const BmcVista = ({ emprendimientoId }) => {
               <Button icono={Send} cargando={enviando} disabled={!feedback.trim()} onClick={enviar}>Enviar feedback</Button>
             </div>
           </div>
+          )}
         </>
       )}
     </section>

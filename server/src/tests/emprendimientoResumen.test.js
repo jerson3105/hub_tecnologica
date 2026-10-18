@@ -108,6 +108,10 @@ describe('emprendimientoController obtenerResumen', () => {
       id: 1, vencidos: 1, compromisosTotales: 2, compromisosCumplidos: 50, lider: 'Diego Huamán', integrantes: 2
     });
     expect(datos.proximaSesion).toMatchObject({ id: 3 });
-    expect(Sesion.findOne).toHaveBeenCalledWith(expect.objectContaining({ order: [['fecha', 'ASC'], ['id', 'ASC']] }));
+    // El mismo día, primero la que empieza antes; con hora y enlace para «Unirse»
+    expect(Sesion.findOne).toHaveBeenCalledWith(expect.objectContaining({
+      order: [['fecha', 'ASC'], ['hora_inicio', 'ASC'], ['id', 'ASC']],
+      attributes: expect.arrayContaining(['hora_inicio', 'modalidad', 'enlace_reunion'])
+    }));
   });
 });

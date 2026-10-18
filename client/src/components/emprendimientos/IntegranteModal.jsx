@@ -15,12 +15,13 @@ const VACIO = { ...DATOS_INTEGRANTE_VACIOS, rol_emprendimiento: '', es_lider: fa
 const normalizar = (texto) => String(texto || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 // Agregar un integrante: asignar un usuario emprendedor que ya existe (y no tiene equipo) o crear
-// uno nuevo. Se monta al abrirse. `onGuardado` se llama tras guardar.
-const IntegranteModal = ({ emprendimiento, onClose, onGuardado }) => {
-  const [modo, setModo] = useState('existente');
+// uno nuevo. Se monta al abrirse. `onGuardado` se llama tras guardar. `soloNuevo`: el líder solo
+// crea cuentas nuevas (vincular cuentas existentes es tarea del equipo técnico).
+const IntegranteModal = ({ emprendimiento, onClose, onGuardado, soloNuevo = false }) => {
+  const [modo, setModo] = useState(soloNuevo ? 'nuevo' : 'existente');
   const [form, setForm] = useState(VACIO);
   const [disponibles, setDisponibles] = useState([]);
-  const [cargando, setCargando] = useState(true);
+  const [cargando, setCargando] = useState(!soloNuevo);
   const [busqueda, setBusqueda] = useState('');
   const [seleccionadoId, setSeleccionadoId] = useState('');
   const [guardando, setGuardando] = useState(false);
@@ -28,6 +29,7 @@ const IntegranteModal = ({ emprendimiento, onClose, onGuardado }) => {
   const [creado, setCreado] = useState(null);
 
   useEffect(() => {
+    if (soloNuevo) return undefined;
     let cancelado = false;
     api.get(`/emprendimientos/${emprendimiento.id}/usuarios-disponibles`)
       .then((res) => {
@@ -43,7 +45,7 @@ const IntegranteModal = ({ emprendimiento, onClose, onGuardado }) => {
       })
       .finally(() => { if (!cancelado) setCargando(false); });
     return () => { cancelado = true; };
-  }, [emprendimiento.id]);
+  }, [emprendimiento.id, soloNuevo]);
 
   const setCampo = (campo, valor) => setForm((f) => ({ ...f, [campo]: valor }));
   const texto = normalizar(busqueda.trim());
@@ -93,16 +95,18 @@ const IntegranteModal = ({ emprendimiento, onClose, onGuardado }) => {
   return (
     <Modal isOpen onClose={onClose} size="lg" title="Agregar integrante" descripcion={`Al equipo de ${emprendimiento.nombre}`}>
       <form onSubmit={guardar} className="space-y-6">
-        <Segmentado
-          etiqueta="Forma de agregar el integrante"
-          valor={modo}
-          onCambiar={setModo}
-          className="w-full"
-          opciones={[
-            { valor: 'existente', texto: 'Usuario existente' },
-            { valor: 'nuevo', texto: 'Crear usuario nuevo' }
-          ]}
-        />
+        {!soloNuevo && (
+          <Segmentado
+            etiqueta="Forma de agregar el integrante"
+            valor={modo}
+            onCambiar={setModo}
+            className="w-full"
+            opciones={[
+              { valor: 'existente', texto: 'Usuario existente' },
+              { valor: 'nuevo', texto: 'Crear usuario nuevo' }
+            ]}
+          />
+        )}
 
         {modo === 'existente' ? (
           <div className="space-y-4">
@@ -172,7 +176,9 @@ const IntegranteModal = ({ emprendimiento, onClose, onGuardado }) => {
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Si el correo ya existe y es de un emprendedor sin equipo, se vinculará a ese usuario.
+              {soloNuevo
+                ? 'Se creará su cuenta y verás una contraseña temporal para compartirle. Si la persona ya tiene cuenta, pide al equipo técnico que la asigne a tu emprendimiento.'
+                : 'Si el correo ya existe y es de un emprendedor sin equipo, se vinculará a ese usuario.'}
             </p>
             <IntegranteFields valores={form} onCambio={setCampo} requerido />
           </div>
@@ -183,19 +189,22 @@ const IntegranteModal = ({ emprendimiento, onClose, onGuardado }) => {
           <Field label="Rol en el emprendimiento">
             <Input type="text" value={form.rol_emprendimiento} onChange={(e) => setCampo('rol_emprendimiento', e.target.value)} placeholder="Ej: Cofundadora, Desarrollador" />
           </Field>
-          <label className="flex cursor-pointer items-start gap-3 rounded-control border border-border p-3 transition-colors hover:bg-muted/50">
-            <input
-              type="checkbox"
-              checked={form.es_lider}
-              onChange={(e) => setCampo('es_lider', e.target.checked)}
-              aria-describedby="ayuda-lider"
-              className="mt-0.5 size-4 accent-[var(--primary)]"
-            />
-            <span className="grid">
-              <span className="text-sm font-semibold">Es líder del emprendimiento</span>
-              <span id="ayuda-lider" className="text-[13px] text-muted-foreground">El líder puede agregar más integrantes a su equipo.</span>
-            </span>
-          </label>
+          {/* Quién lidera lo decide el equipo técnico */}
+          {!soloNuevo && (
+            <label className="flex cursor-pointer items-start gap-3 rounded-control border border-border p-3 transition-colors hover:bg-muted/50">
+              <input
+                type="checkbox"
+                checked={form.es_lider}
+                onChange={(e) => setCampo('es_lider', e.target.checked)}
+                aria-describedby="ayuda-lider"
+                className="mt-0.5 size-4 accent-[var(--primary)]"
+              />
+              <span className="grid">
+                <span className="text-sm font-semibold">Es líder del emprendimiento</span>
+                <span id="ayuda-lider" className="text-[13px] text-muted-foreground">El líder puede agregar más integrantes a su equipo.</span>
+              </span>
+            </label>
+          )}
         </fieldset>
 
         <ModalPie>
