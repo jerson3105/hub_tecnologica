@@ -1,26 +1,19 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Link2, File, FileText, Image, Film, ExternalLink, Download, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api, { descargarArchivo } from '../../services/api';
+import api from '../../services/api';
 import Button from '../ui/Button';
 import { Field, Input, Select } from '../ui/Field';
-import { CATEGORIAS_ARCHIVO, estadoDe } from '../../constants/estados';
-import { formatFecha } from '../../utils/fechas';
-import { TARJETA_CLS, TITULO_BLOQUE_CLS, CHIP_CLS, FONDO_TONO, iconoBotonCls } from '../ui/estilosSemanticos';
-
-const iconoDe = (a) => {
-  if (a.tipo === 'enlace') return Link2;
-  if (a.tipo_mime?.startsWith('image/')) return Image;
-  if (a.tipo_mime?.startsWith('video/')) return Film;
-  if (a.tipo_mime?.includes('pdf')) return FileText;
-  return File;
-};
+import FilaMaterial from '../materiales/FilaMaterial';
+import useEliminarMaterial from '../materiales/useEliminarMaterial';
+import { TARJETA_CLS, TITULO_BLOQUE_CLS } from '../ui/estilosSemanticos';
 
 // Materiales de la sesión. El equipo técnico puede añadir enlaces (presentaciones, Drive…) para
 // toda la sesión o para un emprendimiento (p. ej. el informe de su diagnóstico).
 const MaterialesSesion = ({ sesion, esAdmin, emprendimientos = [] }) => {
   const queryClient = useQueryClient();
+  const eliminar = useEliminarMaterial();
   const [abierto, setAbierto] = useState(false);
   const [enlace, setEnlace] = useState({ nombre: '', url: '', para: '' });
   const [guardando, setGuardando] = useState(false);
@@ -46,7 +39,7 @@ const MaterialesSesion = ({ sesion, esAdmin, emprendimientos = [] }) => {
       setEnlace({ nombre: '', url: '', para: '' });
       setError(null);
       setAbierto(false);
-      queryClient.invalidateQueries({ queryKey: ['sesion'] });
+      ['sesion', 'archivos'].forEach((k) => queryClient.invalidateQueries({ queryKey: [k] }));
     } catch (err) {
       toast.error(err.response?.data?.mensaje || 'No se pudo agregar el enlace');
     } finally {
@@ -94,32 +87,9 @@ const MaterialesSesion = ({ sesion, esAdmin, emprendimientos = [] }) => {
         <p className="border-t border-border px-5 py-6 text-sm text-muted-foreground">Esta sesión aún no tiene materiales.</p>
       ) : (
         <ul className="border-t border-border">
-          {archivos.map((a) => {
-            const Icono = iconoDe(a);
-            const categoria = estadoDe(CATEGORIAS_ARCHIVO, a.categoria);
-            return (
-              <li key={a.id} className="flex items-center gap-3 border-b border-border px-5 py-3 last:border-b-0">
-                <span className="grid size-9 shrink-0 place-items-center rounded-control bg-muted text-muted-foreground"><Icono size={16} aria-hidden="true" /></span>
-                <div className="grid min-w-0 flex-1 gap-0.5">
-                  <p className="truncate text-sm font-semibold">{a.nombre_original}</p>
-                  <p className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
-                    <span className={`${CHIP_CLS} ${FONDO_TONO.neutral}`}>{categoria.label}</span>
-                    {esAdmin && a.emprendimientos?.map((e) => <span key={e.id} className={`${CHIP_CLS} ${FONDO_TONO.info}`}>{e.nombre}</span>)}
-                    {a.created_at && <span>{formatFecha(a.created_at)}</span>}
-                  </p>
-                </div>
-                {a.tipo === 'enlace' ? (
-                  <a href={a.url} target="_blank" rel="noopener noreferrer" className={iconoBotonCls()} aria-label={`Abrir ${a.nombre_original} (se abre en otra pestaña)`} title="Abrir enlace">
-                    <ExternalLink size={16} aria-hidden="true" />
-                  </a>
-                ) : (
-                  <button type="button" onClick={() => descargarArchivo(a.id, a.nombre_original)} className={iconoBotonCls()} aria-label={`Descargar ${a.nombre_original}`} title="Descargar">
-                    <Download size={16} aria-hidden="true" />
-                  </button>
-                )}
-              </li>
-            );
-          })}
+          {archivos.map((a) => (
+            <FilaMaterial key={a.id} archivo={a} conDestino={esAdmin} onEliminar={esAdmin ? eliminar : undefined} />
+          ))}
         </ul>
       )}
     </section>

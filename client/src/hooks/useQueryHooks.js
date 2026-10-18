@@ -34,10 +34,11 @@ export const useProgramaResumen = (id) =>
   });
 
 // ─── Emprendimientos ───
-export const useEmprendimientos = (params = {}) =>
+export const useEmprendimientos = (params = {}, opciones = {}) =>
   useQuery({
     queryKey: ['emprendimientos', params],
-    queryFn: () => api.get('/emprendimientos', { params }).then(r => r.data.emprendimientos)
+    queryFn: () => api.get('/emprendimientos', { params }).then(r => r.data.emprendimientos),
+    ...opciones
   });
 
 export const useEmprendimiento = (id) =>

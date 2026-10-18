@@ -15,12 +15,11 @@ const Emprendimientos = lazy(() => import('./pages/Emprendimientos'));
 const EmprendimientoDetalle = lazy(() => import('./pages/EmprendimientoDetalle'));
 const Sesiones = lazy(() => import('./pages/Sesiones'));
 const SesionDetalle = lazy(() => import('./pages/SesionDetalle'));
-const Archivos = lazy(() => import('./pages/Archivos'));
+const Materiales = lazy(() => import('./pages/Materiales'));
 const Usuarios = lazy(() => import('./pages/Usuarios'));
 const Asistencias = lazy(() => import('./pages/Asistencias'));
 const Perfil = lazy(() => import('./pages/Perfil'));
 const MiEmprendimiento = lazy(() => import('./pages/MiEmprendimiento'));
-const MisArchivos = lazy(() => import('./pages/MisArchivos'));
 const OnePager = lazy(() => import('./pages/OnePager'));
 const Bmc = lazy(() => import('./pages/Bmc'));
 const RegistroRonda = lazy(() => import('./pages/RegistroRonda'));
@@ -68,7 +67,6 @@ function App() {
             <Route path="/programas/:id" element={<ProtectedRoute adminOnly><ProgramaDetalle /></ProtectedRoute>} />
             <Route path="/emprendimientos" element={<ProtectedRoute adminOnly><Emprendimientos /></ProtectedRoute>} />
             <Route path="/seguimientos" element={<ProtectedRoute adminOnly><Seguimiento /></ProtectedRoute>} />
-            <Route path="/archivos" element={<ProtectedRoute adminOnly><Archivos /></ProtectedRoute>} />
             <Route path="/usuarios" element={<ProtectedRoute adminOnly><Usuarios /></ProtectedRoute>} />
             <Route path="/asistencias" element={<ProtectedRoute adminOnly><Asistencias /></ProtectedRoute>} />
             <Route path="/reportes" element={<ProtectedRoute adminOnly><Reportes /></ProtectedRoute>} />
@@ -82,10 +80,13 @@ function App() {
             <Route path="/sesiones/:id/nps" element={<RedirigirEvaluacion />} />
             <Route path="/sesiones/:id/registro" element={<ProtectedRoute adminOnly><RegistroRonda /></ProtectedRoute>} />
             <Route path="/perfil" element={<Perfil />} />
+            {/* Materiales unifica /archivos (admin) y /mis-archivos (emprendedor); las rutas antiguas redirigen */}
+            <Route path="/materiales" element={<Materiales />} />
+            <Route path="/archivos" element={<Navigate to="/materiales" replace />} />
+            <Route path="/mis-archivos" element={<Navigate to="/materiales" replace />} />
 
             {/* Emprendedor */}
             <Route path="/mi-emprendimiento" element={<MiEmprendimiento />} />
-            <Route path="/mis-archivos" element={<MisArchivos />} />
             <Route path="/one-pager" element={<OnePager />} />
             <Route path="/bmc" element={<Bmc />} />
             <Route path="/mis-mentores" element={<MisMentores />} />

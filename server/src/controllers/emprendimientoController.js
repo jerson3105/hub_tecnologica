@@ -103,7 +103,8 @@ const obtenerPorId = async (req, res) => {
         {
           model: Archivo,
           as: 'archivos',
-          attributes: ['id', 'nombre_original', 'categoria', 'sesion_id', 'created_at'],
+          // tipo y url: los enlaces se abren, no se descargan
+          attributes: ['id', 'tipo', 'nombre_original', 'url', 'descripcion', 'tipo_mime', 'tamanio', 'categoria', 'sesion_id', 'created_at'],
           where: { sesion_id: null },
           required: false
         }

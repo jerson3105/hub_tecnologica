@@ -4,7 +4,10 @@ const { Op } = require('sequelize');
 const { Archivo, ArchivoEmprendimiento, Emprendimiento, Integrante, Sesion } = require('../models');
 const logger = require('../utils/logger');
 const { categoriaSegura } = require('../middleware/upload');
-const { puedeAccederEmprendimiento, puedeAccederSesion, esUrlHttp } = require('../utils/acceso');
+const {
+  puedeAccederEmprendimiento, puedeAccederSesion, esUrlHttp,
+  emprendimientoIdsDeUsuario, programaIdsDeUsuario, sesionIdsDeProgramas
+} = require('../utils/acceso');
 
 // Campos que se devuelven al cliente (sin la ruta interna del servidor)
 const ATRIBUTOS_PUBLICOS = { exclude: ['ruta', 'nombre_archivo'] };
@@ -139,6 +142,54 @@ const crearEnlace = async (req, res) => {
   }
 };
 
+const INCLUDE_SESION = { model: Sesion, as: 'sesion', attributes: ['id', 'titulo', 'fecha', 'tipo'] };
+
+// Material que ve un emprendedor: el vinculado a sus emprendimientos y el compartido con toda
+// una sesión de su programa (sin emprendimientos), igual que en el detalle de la sesión y en
+// la descarga. De cada material solo ve sus propios emprendimientos, no los de otros equipos.
+const listarParaEmprendedor = async (usuario, where) => {
+  const [misEmpIds, programaIds] = await Promise.all([
+    emprendimientoIdsDeUsuario(usuario.id),
+    programaIdsDeUsuario(usuario.id)
+  ]);
+  const sesionIds = await sesionIdsDeProgramas(programaIds);
+  const [vinculados, deSesion] = await Promise.all([
+    misEmpIds.length
+      ? ArchivoEmprendimiento.findAll({ where: { emprendimiento_id: { [Op.in]: misEmpIds } }, attributes: ['archivo_id'] })
+      : [],
+    sesionIds.length
+      ? Archivo.findAll({
+        where: { sesion_id: { [Op.in]: sesionIds } },
+        attributes: ['id'],
+        include: [{ model: Emprendimiento, as: 'emprendimientos', attributes: ['id'], through: { attributes: [] } }]
+      })
+      : []
+  ]);
+  const ids = new Set([
+    ...vinculados.map(v => v.archivo_id),
+    ...deSesion.filter(a => !a.emprendimientos?.length).map(a => a.id)
+  ]);
+  // Sin emprendimiento no hay programa ni sesiones: ids vacío, así que misEmpIds nunca lo está abajo
+  if (ids.size === 0) return [];
+
+  return Archivo.findAll({
+    where: { ...where, id: { [Op.in]: [...ids] } },
+    attributes: ATRIBUTOS_PUBLICOS,
+    include: [
+      {
+        model: Emprendimiento,
+        as: 'emprendimientos',
+        attributes: ['id', 'nombre'],
+        through: { attributes: [] },
+        where: { id: { [Op.in]: misEmpIds } },
+        required: false
+      },
+      INCLUDE_SESION
+    ],
+    order: [['created_at', 'DESC']]
+  });
+};
+
 const listar = async (req, res) => {
   try {
     const { emprendimiento_id, sesion_id, categoria } = req.query;
@@ -146,61 +197,25 @@ const listar = async (req, res) => {
     if (sesion_id) where.sesion_id = sesion_id;
     if (categoria) where.categoria = categoria;
 
-    let archivos;
-
     if (req.usuario.rol === 'emprendedor') {
-      const integrantes = await Integrante.findAll({
-        where: { usuario_id: req.usuario.id },
-        attributes: ['emprendimiento_id']
-      });
-      const misEmpIds = integrantes.map(i => i.emprendimiento_id);
-
-      archivos = await Archivo.findAll({
-        where,
-        attributes: ATRIBUTOS_PUBLICOS,
-        include: [
-          {
-            model: Emprendimiento,
-            as: 'emprendimientos',
-            attributes: ['id', 'nombre'],
-            where: { id: { [Op.in]: misEmpIds } },
-            required: true
-          },
-          { model: Sesion, as: 'sesion', attributes: ['id', 'titulo', 'fecha'] }
-        ],
-        order: [['created_at', 'DESC']]
-      });
-    } else if (emprendimiento_id) {
-      archivos = await Archivo.findAll({
-        where,
-        attributes: ATRIBUTOS_PUBLICOS,
-        include: [
-          {
-            model: Emprendimiento,
-            as: 'emprendimientos',
-            attributes: ['id', 'nombre'],
-            where: { id: emprendimiento_id },
-            required: true
-          },
-          { model: Sesion, as: 'sesion', attributes: ['id', 'titulo', 'fecha'] }
-        ],
-        order: [['created_at', 'DESC']]
-      });
-    } else {
-      archivos = await Archivo.findAll({
-        where,
-        attributes: ATRIBUTOS_PUBLICOS,
-        include: [
-          {
-            model: Emprendimiento,
-            as: 'emprendimientos',
-            attributes: ['id', 'nombre']
-          },
-          { model: Sesion, as: 'sesion', attributes: ['id', 'titulo', 'fecha'] }
-        ],
-        order: [['created_at', 'DESC']]
-      });
+      return res.json({ archivos: await listarParaEmprendedor(req.usuario, where) });
     }
+
+    const archivos = await Archivo.findAll({
+      where,
+      attributes: ATRIBUTOS_PUBLICOS,
+      include: [
+        {
+          model: Emprendimiento,
+          as: 'emprendimientos',
+          attributes: ['id', 'nombre'],
+        through: { attributes: [] },
+          ...(emprendimiento_id ? { where: { id: emprendimiento_id }, required: true } : {})
+        },
+        INCLUDE_SESION
+      ],
+      order: [['created_at', 'DESC']]
+    });
 
     res.json({ archivos });
   } catch (error) {

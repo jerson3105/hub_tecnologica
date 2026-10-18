@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { ChevronRight, Pencil, ClipboardList, Download, FileUp, Rocket, Target } from 'lucide-react';
+import { ChevronRight, Pencil, ClipboardList, Rocket, Target } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useEmprendimiento, useEmprendimientoResumen, useInvalidate } from '../hooks/useQueryHooks';
-import { descargarArchivo } from '../services/api';
-import { formatFecha, esFutura } from '../utils/fechas';
+import { useEmprendimiento, useEmprendimientoResumen, useArchivos, useInvalidate } from '../hooks/useQueryHooks';
+import { esFutura } from '../utils/fechas';
 import { haceDias } from '../utils/inicio';
-import { CATEGORIAS_ARCHIVO, estadoDe } from '../constants/estados';
 import TarjetaKpi from '../components/inicio/TarjetaKpi';
 import LineaSeguimiento from '../components/emprendimientos/LineaSeguimiento';
 import EquipoEmprendimiento from '../components/emprendimientos/EquipoEmprendimiento';
@@ -15,10 +13,10 @@ import BmcVista from '../components/emprendimientos/BmcVista';
 import ProximaSesion from '../components/emprendimientos/ProximaSesion';
 import CompromisosAbiertos from '../components/seguimiento/CompromisosAbiertos';
 import ObjetivosOkr from '../components/seguimiento/ObjetivosOkr';
+import MaterialesEmprendimiento from '../components/materiales/MaterialesEmprendimiento';
 import EmprendimientoFormModal from '../components/emprendimientos/EmprendimientoFormModal';
 import Pestanas from '../components/ui/Pestanas';
 import Skeleton from '../components/ui/Skeleton';
-import Button from '../components/ui/Button';
 import {
   TARJETA_CLS, TITULO_BLOQUE_CLS, CHIP_CLS, FONDO_TONO, BOTON_PRIMARIO_CLS, BOTON_SECUNDARIO_CLS
 } from '../components/ui/estilosSemanticos';
@@ -71,41 +69,13 @@ const Esqueleto = () => (
   </div>
 );
 
-const Materiales = ({ archivos = [] }) => (
-  <section aria-labelledby="t-materiales" className={TARJETA_CLS}>
-    <div className="px-5 py-4">
-      <h2 id="t-materiales" className={TITULO_BLOQUE_CLS}>Materiales</h2>
-      <p className="mt-1 text-[13px] text-muted-foreground">Archivos asignados al emprendimiento. Los de cada sesión están en su detalle.</p>
-    </div>
-    {archivos.length === 0 ? (
-      <div className="flex items-center gap-3 border-t border-border px-5 py-6">
-        <span className="grid size-9 shrink-0 place-items-center rounded-control bg-muted text-muted-foreground"><FileUp size={18} aria-hidden="true" /></span>
-        <p className="text-sm text-muted-foreground">No hay archivos asignados a este emprendimiento.</p>
-      </div>
-    ) : (
-      <ul className="border-t border-border">
-        {archivos.map((a) => (
-          <li key={a.id} className="flex items-center justify-between gap-3 border-b border-border px-5 py-3 last:border-b-0">
-            <div className="min-w-0">
-              <p className="break-words text-sm font-semibold">{a.nombre_original}</p>
-              <p className="text-[13px] text-muted-foreground">{estadoDe(CATEGORIAS_ARCHIVO, a.categoria).label} · {formatFecha(a.created_at)}</p>
-            </div>
-            <Button variante="texto" icono={Download} onClick={() => descargarArchivo(a.id, a.nombre_original)} aria-label={`Descargar ${a.nombre_original}`} className="shrink-0">
-              Descargar
-            </Button>
-          </li>
-        ))}
-      </ul>
-    )}
-  </section>
-);
-
 const EmprendimientoDetalle = () => {
   const { id } = useParams();
   const { esAdmin } = useAuth();
   const invalidate = useInvalidate();
   const { data: emp, isLoading, isError } = useEmprendimiento(id);
   const { data: resumenData } = useEmprendimientoResumen(id);
+  const { data: materiales } = useArchivos({ emprendimiento_id: id });
   const [editando, setEditando] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -197,7 +167,7 @@ const EmprendimientoDetalle = () => {
             { id: 'objetivos', label: 'Objetivos' },
             { id: 'onepager', label: 'One Pager' },
             ...(esAdmin ? [{ id: 'bmc', label: 'BMC' }] : []),
-            { id: 'materiales', label: 'Materiales', contador: emp.archivos?.length || 0 },
+            { id: 'materiales', label: 'Materiales', contador: materiales?.length || 0 },
             { id: 'equipo', label: 'Equipo', contador: emp.integrantes?.length || 0 }
           ]}
         />
@@ -253,7 +223,7 @@ const EmprendimientoDetalle = () => {
           )}
           {tab === 'onepager' && <OnePagerVista emprendimiento={emp} />}
           {tab === 'bmc' && esAdmin && <BmcVista emprendimientoId={emp.id} />}
-          {tab === 'materiales' && <Materiales archivos={emp.archivos} />}
+          {tab === 'materiales' && <MaterialesEmprendimiento emprendimientoId={emp.id} archivos={materiales} esAdmin={esAdmin} />}
           {tab === 'equipo' && <EquipoEmprendimiento emprendimiento={emp} esAdmin={esAdmin} onCambio={refrescar} />}
         </div>
       </div>

@@ -21,6 +21,16 @@ const programaIdsDeUsuario = async (usuarioId) => {
   return [...new Set(integrantes.map(i => i.emprendimiento?.programa_id).filter(Boolean))];
 };
 
+// IDs de las sesiones de esos programas (vínculo SesionPrograma o programa_id legacy)
+const sesionIdsDeProgramas = async (programaIds) => {
+  if (programaIds.length === 0) return [];
+  const [vinculos, legacy] = await Promise.all([
+    SesionPrograma.findAll({ where: { programa_id: { [Op.in]: programaIds } }, attributes: ['sesion_id'] }),
+    Sesion.findAll({ where: { programa_id: { [Op.in]: programaIds } }, attributes: ['id'] })
+  ]);
+  return [...new Set([...vinculos.map(v => v.sesion_id), ...legacy.map(s => s.id)])];
+};
+
 // Admin o integrante del emprendimiento
 const puedeAccederEmprendimiento = async (usuario, emprendimientoId) => {
   if (esAdmin(usuario)) return true;
@@ -68,6 +78,7 @@ module.exports = {
   esAdmin,
   emprendimientoIdsDeUsuario,
   programaIdsDeUsuario,
+  sesionIdsDeProgramas,
   puedeAccederEmprendimiento,
   puedeAccederSesion,
   denegar,

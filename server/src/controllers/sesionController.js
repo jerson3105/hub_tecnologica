@@ -137,7 +137,7 @@ const obtenerPorId = async (req, res) => {
       {
         model: Archivo,
         as: 'archivos',
-        attributes: ['id', 'tipo', 'nombre_original', 'url', 'tipo_mime', 'tamanio', 'categoria', 'created_at'],
+        attributes: ['id', 'tipo', 'nombre_original', 'url', 'descripcion', 'tipo_mime', 'tamanio', 'categoria', 'sesion_id', 'created_at'],
         include: [
           { model: Emprendimiento, as: 'emprendimientos', attributes: ['id', 'nombre'] }
         ]

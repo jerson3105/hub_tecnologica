@@ -208,7 +208,7 @@ const MiEmprendimiento = () => {
                 <p className="font-semibold text-brand-dark">Ver Seguimiento</p>
                 <p className="text-xs text-gray-500 mt-1">Historial de avances</p>
               </Link>
-              <Link to="/mis-archivos" className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-brand-green/20 transition-all text-center group shadow-sm">
+              <Link to="/materiales" className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-brand-green/20 transition-all text-center group shadow-sm">
                 <div className="w-12 h-12 bg-brand-green/10 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-green/15 transition-colors">
                   <FileUp size={22} className="text-brand-green-ink" />
                 </div>

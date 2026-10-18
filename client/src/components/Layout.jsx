@@ -6,7 +6,7 @@ import ErrorBoundary from './ErrorBoundary';
 import api from '../services/api';
 import {
   LayoutDashboard, FolderKanban, Rocket, CalendarDays,
-  ClipboardList, FileUp, Users, BarChart3, LogOut,
+  ClipboardList, FolderOpen, Users, BarChart3, LogOut,
   Menu, X, ChevronDown, User, FileText, AlertCircle, LayoutGrid, GraduationCap, Target
 } from 'lucide-react';
 
@@ -52,7 +52,7 @@ const Layout = () => {
     { to: '/emprendimientos', label: 'Emprendimientos', icon: Rocket },
     { to: '/sesiones', label: 'Sesiones', icon: CalendarDays },
     { to: '/seguimientos', label: 'Seguimiento', icon: ClipboardList },
-    { to: '/archivos', label: 'Materiales', icon: FileUp },
+    { to: '/materiales', label: 'Materiales', icon: FolderOpen },
     { to: '/usuarios', label: 'Usuarios', icon: Users },
     { to: '/asistencias', label: 'Asistencias', icon: BarChart3 },
     { to: '/reportes', label: 'Reportes e Indicadores', icon: FileText },
@@ -63,7 +63,7 @@ const Layout = () => {
     { to: '/mi-emprendimiento', label: 'Mi Emprendimiento', icon: Rocket },
     { to: '/one-pager', label: 'One Pager', icon: FileText, badge: onePagerIncompleto },
     { to: '/bmc', label: 'Business Model Canvas', icon: LayoutGrid },
-    { to: '/mis-archivos', label: 'Mis Materiales', icon: FileUp },
+    { to: '/materiales', label: 'Materiales', icon: FolderOpen },
     { to: '/sesiones', label: 'Sesiones', icon: CalendarDays },
     { to: '/mi-seguimiento', label: 'Mi Seguimiento', icon: ClipboardList },
     { to: '/mis-objetivos', label: 'Mis Objetivos', icon: Target },
