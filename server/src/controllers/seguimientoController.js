@@ -1,5 +1,6 @@
 const { Seguimiento, Sesion, Emprendimiento, Programa, Integrante } = require('../models');
 const logger = require('../utils/logger');
+const { seguimientoVisible, seguimientosVisibles } = require('../utils/privacidad');
 
 const crear = async (req, res) => {
   try {
@@ -89,7 +90,8 @@ const listarPorEmprendimiento = async (req, res) => {
       order: [[{ model: Sesion, as: 'sesion' }, 'fecha', 'ASC']]
     });
 
-    res.json({ seguimientos });
+    // Los campos internos (observaciones…) no se le envían al emprendedor
+    res.json({ seguimientos: seguimientosVisibles(req.usuario, seguimientos) });
   } catch (error) {
     logger.error('Error al listar seguimientos:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });
@@ -119,7 +121,7 @@ const obtenerPorId = async (req, res) => {
       }
     }
 
-    res.json({ seguimiento });
+    res.json({ seguimiento: seguimientoVisible(req.usuario, seguimiento) });
   } catch (error) {
     logger.error('Error al obtener seguimiento:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });
