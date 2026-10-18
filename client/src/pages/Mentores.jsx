@@ -55,7 +55,7 @@ const AvisoMatch = ({ onAbrir }) => {
       {completo ? (
         <button type="button" onClick={onAbrir} className={BOTON_PRIMARIO_CLS}><Sparkles size={16} aria-hidden="true" />Encontrar mi mentor</button>
       ) : (
-        <Link to="/one-pager" className={BOTON_SECUNDARIO_CLS}><FileText size={16} aria-hidden="true" />Completar One Pager</Link>
+        <Link to="/mi-emprendimiento?tab=onepager&editar=1" className={BOTON_SECUNDARIO_CLS}><FileText size={16} aria-hidden="true" />Completar One Pager</Link>
       )}
     </div>
   );

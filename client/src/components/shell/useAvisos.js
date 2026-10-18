@@ -56,7 +56,7 @@ const useAvisos = (esAdmin) => {
       titulo: 'Tu One Pager está incompleto',
       detalle: 'Lo necesitas para el match con mentores.',
       accion: 'Completar',
-      to: '/one-pager'
+      to: '/mi-emprendimiento?tab=onepager&editar=1'
     }
   ].filter(Boolean);
   return {

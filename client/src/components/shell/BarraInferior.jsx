@@ -3,7 +3,7 @@ import { NavLink, Link, useLocation } from 'react-router-dom';
 import { Menu, User, LogOut } from 'lucide-react';
 import Modal from '../Modal';
 import SelectorTema from './SelectorTema';
-import { enlacesDe, activoPorRuta } from './navegacion';
+import { enlacesDe } from './navegacion';
 
 const textoContador = (valor) => (valor === '!' ? ', pendiente' : valor ? `, ${valor}` : '');
 
@@ -37,10 +37,10 @@ const BarraInferior = ({ nav, conteos, usuario, onSalir }) => {
             const valor = e.aviso ? conteos[e.aviso] : 0;
             return (
               <li key={e.to}>
-                <NavLink to={e.to} aria-current={activoPorRuta(e, pathname) ? 'page' : undefined} className={({ isActive }) => claseItem(isActive || activoPorRuta(e, pathname))}>
+                <NavLink to={e.to} className={({ isActive }) => claseItem(isActive)}>
                   {({ isActive }) => (
                     <>
-                      <span className={`relative grid h-7 w-12 place-items-center rounded-full transition-colors ${isActive || activoPorRuta(e, pathname) ? 'bg-info-soft' : ''}`}>
+                      <span className={`relative grid h-7 w-12 place-items-center rounded-full transition-colors ${isActive ? 'bg-info-soft' : ''}`}>
                         <Icono size={20} aria-hidden="true" />
                         <Marca valor={valor} />
                       </span>

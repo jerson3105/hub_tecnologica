@@ -20,8 +20,6 @@ const Materiales = lazy(() => import('./pages/Materiales'));
 const Usuarios = lazy(() => import('./pages/Usuarios'));
 const Perfil = lazy(() => import('./pages/Perfil'));
 const MiEmprendimiento = lazy(() => import('./pages/MiEmprendimiento'));
-const OnePager = lazy(() => import('./pages/OnePager'));
-const Bmc = lazy(() => import('./pages/Bmc'));
 const RegistroRonda = lazy(() => import('./pages/RegistroRonda'));
 const Reportes = lazy(() => import('./pages/Reportes'));
 const Mentores = lazy(() => import('./pages/Mentores'));
@@ -106,8 +104,9 @@ function App() {
 
             {/* Emprendedor */}
             <Route path="/mi-emprendimiento" element={<MiEmprendimiento />} />
-            <Route path="/one-pager" element={<OnePager />} />
-            <Route path="/bmc" element={<Bmc />} />
+            {/* One Pager y BMC se editan en las pestañas de Mi emprendimiento; las rutas antiguas redirigen */}
+            <Route path="/one-pager" element={<Navigate to="/mi-emprendimiento?tab=onepager&editar=1" replace />} />
+            <Route path="/bmc" element={<Navigate to="/mi-emprendimiento?tab=bmc" replace />} />
             <Route path="/mis-objetivos" element={<MisObjetivos />} />
             <Route path="/mi-seguimiento" element={<MiSeguimiento />} />
           </Route>

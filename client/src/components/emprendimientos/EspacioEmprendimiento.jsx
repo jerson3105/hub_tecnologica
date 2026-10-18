@@ -10,7 +10,9 @@ import TarjetaKpi from '../inicio/TarjetaKpi';
 import LineaSeguimiento from './LineaSeguimiento';
 import EquipoEmprendimiento from './EquipoEmprendimiento';
 import OnePagerVista from './OnePagerVista';
+import OnePagerEditor from './OnePagerEditor';
 import BmcVista from './BmcVista';
+import BmcEditor from './BmcEditor';
 import ProximaSesion from './ProximaSesion';
 import CompromisosAbiertos from '../seguimiento/CompromisosAbiertos';
 import ObjetivosOkr from '../seguimiento/ObjetivosOkr';
@@ -104,7 +106,8 @@ const PorHacer = ({ asuntos }) => (
 
 // Espacio de un emprendimiento con pestañas en la URL (?tab=). El equipo técnico ve todo y gestiona;
 // el emprendedor (su «Mi emprendimiento») ve Resumen con «Por hacer», One Pager, Modelo de negocio,
-// Materiales y Equipo. Su seguimiento y sus objetivos están en Mi seguimiento y Mis objetivos.
+// Materiales y Equipo, y edita ahí mismo su One Pager (?tab=onepager&editar=1) y su BMC. Su
+// seguimiento y sus objetivos están en Mi seguimiento y Mis objetivos.
 const EspacioEmprendimiento = ({ id }) => {
   const { esAdmin, usuario } = useAuth();
   const invalidate = useInvalidate();
@@ -113,13 +116,19 @@ const EspacioEmprendimiento = ({ id }) => {
   const { data: materiales } = useArchivos({ emprendimiento_id: id });
   const avisos = useAvisos(esAdmin);
   const [editando, setEditando] = useState(false);
+  const [pendientes, setPendientes] = useState(false); // cambios sin guardar en un editor de pestaña
   const [searchParams, setSearchParams] = useSearchParams();
 
   const pestanasDisponibles = esAdmin
     ? ['resumen', 'seguimiento', 'objetivos', 'onepager', 'bmc', 'materiales', 'equipo']
     : ['resumen', 'onepager', 'bmc', 'materiales', 'equipo'];
   const tab = pestanasDisponibles.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'resumen';
-  const cambiarTab = (nueva) => setSearchParams(nueva === 'resumen' ? {} : { tab: nueva }, { replace: true });
+  const editandoOnePager = !esAdmin && tab === 'onepager' && searchParams.get('editar') === '1';
+  const irA = (params) => setSearchParams(params, { replace: true });
+  const cambiarTab = (nueva) => {
+    if (pendientes && !window.confirm('Tienes cambios sin guardar. ¿Descartarlos?')) return;
+    irA(nueva === 'resumen' ? {} : { tab: nueva });
+  };
   const refrescar = () => invalidate('emprendimiento', 'emprendimientos', 'programa', 'programas', 'inicio');
 
   if (isLoading) return <EsqueletoEspacio />;
@@ -286,19 +295,21 @@ const EspacioEmprendimiento = ({ id }) => {
             </div>
           )}
           {tab === 'objetivos' && esAdmin && <ObjetivosOkr emprendimientoId={emp.id} editable />}
-          {tab === 'onepager' && (
+          {tab === 'onepager' && (editandoOnePager ? (
+            <OnePagerEditor emprendimiento={emp} onSalir={() => irA({ tab: 'onepager' })} onPendientes={setPendientes} />
+          ) : (
             <OnePagerVista
               emprendimiento={emp}
-              accion={!esAdmin && <Link to="/one-pager" className={BOTON_SECUNDARIO_CLS}><Pencil size={16} aria-hidden="true" />Editar One Pager</Link>}
+              accion={!esAdmin && (
+                <button type="button" onClick={() => irA({ tab: 'onepager', editar: '1' })} className={BOTON_SECUNDARIO_CLS}>
+                  <Pencil size={16} aria-hidden="true" />Editar One Pager
+                </button>
+              )}
             />
-          )}
-          {tab === 'bmc' && (
-            <BmcVista
-              emprendimientoId={emp.id}
-              puedeOpinar={esAdmin}
-              accion={!esAdmin && <Link to="/bmc" className={BOTON_SECUNDARIO_CLS}><Pencil size={16} aria-hidden="true" />Editar</Link>}
-            />
-          )}
+          ))}
+          {tab === 'bmc' && (esAdmin
+            ? <BmcVista emprendimientoId={emp.id} />
+            : <BmcEditor emprendimientoId={emp.id} onPendientes={setPendientes} />)}
           {tab === 'materiales' && <MaterialesEmprendimiento emprendimientoId={emp.id} archivos={materiales} esAdmin={esAdmin} />}
           {tab === 'equipo' && <EquipoEmprendimiento emprendimiento={emp} esAdmin={esAdmin} esLider={soyLider} usuarioId={usuario?.id} onCambio={refrescar} />}
         </div>

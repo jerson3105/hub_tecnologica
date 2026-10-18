@@ -10,24 +10,11 @@ import Skeleton from '../ui/Skeleton';
 import { Field, Textarea } from '../ui/Field';
 import { FILTRO_CLS } from '../ui/estilos';
 import { TARJETA_CLS, TITULO_BLOQUE_CLS, CHIP_CLS, FONDO_TONO } from '../ui/estilosSemanticos';
+import { BLOQUES_BMC as BLOQUES } from '../../constants/bmc';
 
-// Disposición clásica del lienzo en escritorio (10 columnas); en móvil, un bloque por fila
-const BLOQUES = [
-  { clave: 'socios_clave', etiqueta: 'Socios clave', tono: 'programa', celda: 'lg:col-span-2 lg:row-span-2' },
-  { clave: 'actividades_clave', etiqueta: 'Actividades clave', tono: 'info', celda: 'lg:col-span-2' },
-  { clave: 'propuesta_valor', etiqueta: 'Propuesta de valor', tono: 'warning', celda: 'lg:col-span-2 lg:row-span-2' },
-  { clave: 'relacion_clientes', etiqueta: 'Relación con clientes', tono: 'success', celda: 'lg:col-span-2' },
-  { clave: 'segmento_clientes', etiqueta: 'Segmento de clientes', tono: 'danger', celda: 'lg:col-span-2 lg:row-span-2' },
-  { clave: 'recursos_clave', etiqueta: 'Recursos clave', tono: 'info', celda: 'lg:col-span-2' },
-  { clave: 'canales', etiqueta: 'Canales', tono: 'success', celda: 'lg:col-span-2' },
-  { clave: 'estructura_costos', etiqueta: 'Estructura de costos', tono: 'azul', celda: 'lg:col-span-5' },
-  { clave: 'fuentes_ingresos', etiqueta: 'Fuentes de ingresos', tono: 'success', celda: 'lg:col-span-5' }
-];
-
-// Business Model Canvas en lectura, con selector de versión y feedback del equipo técnico.
-// `puedeOpinar` (equipo técnico) muestra el formulario de feedback; el emprendedor ve el que recibió
-// y `accion` (p. ej. «Editar BMC»).
-const BmcVista = ({ emprendimientoId, puedeOpinar = true, accion = null }) => {
+// Business Model Canvas en lectura para el equipo técnico, con selector de versión y su feedback.
+// El emprendedor lo edita con BmcEditor; una versión con feedback queda como entregada.
+const BmcVista = ({ emprendimientoId }) => {
   const queryClient = useQueryClient();
   const [seleccionId, setSeleccionId] = useState(null);
   const [borradores, setBorradores] = useState({});
@@ -72,16 +59,14 @@ const BmcVista = ({ emprendimientoId, puedeOpinar = true, accion = null }) => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <h2 id="t-bmc" className={TITULO_BLOQUE_CLS}>Business Model Canvas</h2>
-          {bmc && !bmc.feedback && puedeOpinar && <span className={`${CHIP_CLS} ${FONDO_TONO.warning}`}>Sin feedback</span>}
-          {bmc?.feedback && !puedeOpinar && <span className={`${CHIP_CLS} ${FONDO_TONO.programa}`}>Con feedback</span>}
+          {bmc && !bmc.feedback && <span className={`${CHIP_CLS} ${FONDO_TONO.warning}`}>Sin feedback</span>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {versiones.length > 1 && (
             <select aria-label="Versión del Business Model Canvas" value={idActivo || ''} onChange={(e) => setSeleccionId(Number(e.target.value))} className={FILTRO_CLS}>
-              {versiones.map((v) => <option key={v.id} value={v.id}>v{v.version} — {v.nombre || `Versión ${v.version}`}</option>)}
+              {versiones.map((v) => <option key={v.id} value={v.id}>v{v.version} · {v.nombre || `Versión ${v.version}`}{v.feedback ? ' · con feedback' : ''}</option>)}
             </select>
           )}
-          {accion}
         </div>
       </div>
 
@@ -92,13 +77,14 @@ const BmcVista = ({ emprendimientoId, puedeOpinar = true, accion = null }) => {
       ) : !bmc ? (
         <div className="grid justify-items-center gap-3 py-8 text-center">
           <span className="grid size-12 place-items-center rounded-card bg-muted text-muted-foreground"><LayoutGrid size={24} aria-hidden="true" /></span>
-          <p className="font-semibold">{puedeOpinar ? 'El equipo aún no ha creado su Business Model Canvas' : 'Aún no han creado su Business Model Canvas'}</p>
+          <p className="font-semibold">El equipo aún no ha creado su Business Model Canvas</p>
+          <p className="text-sm text-muted-foreground">Lo completan los integrantes desde Mi emprendimiento.</p>
         </div>
       ) : (
         <>
           <div className="grid auto-rows-[minmax(6rem,auto)] grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-10">
             {BLOQUES.map((b) => (
-              <div key={b.clave} className={`rounded-control border border-border p-3 ${b.celda}`}>
+              <div key={b.clave} className={`rounded-control border border-border p-3 ${b.orden} lg:order-none ${b.celda}`}>
                 <p className={`mb-1.5 inline-block rounded-chip px-1.5 py-0.5 text-xs font-semibold ${FONDO_TONO[b.tono]}`}>{b.etiqueta}</p>
                 {bmc[b.clave]
                   ? <p className="whitespace-pre-wrap text-[13px]">{bmc[b.clave]}</p>
@@ -109,12 +95,11 @@ const BmcVista = ({ emprendimientoId, puedeOpinar = true, accion = null }) => {
 
           {bmc.feedback && bmc.feedback_fecha && (
             <div className="rounded-control border border-border bg-programa-soft/50 p-4">
-              <p className="eyebrow">{puedeOpinar ? 'Feedback enviado' : 'Feedback del equipo técnico'} el {formatFecha(bmc.feedback_fecha)}</p>
+              <p className="eyebrow">Feedback enviado el {formatFecha(bmc.feedback_fecha)}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm">{bmc.feedback}</p>
             </div>
           )}
 
-          {puedeOpinar && (
           <div className="grid gap-3 border-t border-border pt-4">
             <Field label="Feedback para el equipo" ayuda="Lo verán al abrir esta versión de su BMC.">
               <Textarea
@@ -129,7 +114,6 @@ const BmcVista = ({ emprendimientoId, puedeOpinar = true, accion = null }) => {
               <Button icono={Send} cargando={enviando} disabled={!feedback.trim()} onClick={enviar}>Enviar feedback</Button>
             </div>
           </div>
-          )}
         </>
       )}
     </section>
