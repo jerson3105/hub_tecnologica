@@ -7,9 +7,14 @@ import { Plus, Edit, Trash2, Eye, CalendarDays, Video, Star, AlertCircle } from 
 import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
 import { useProgramas, useNpsPromedios, useInvalidate } from '../hooks/useQueryHooks';
-
-const INPUT_CLS = 'w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-cyan/40 focus:border-brand-cyan outline-none transition-all text-sm';
-const LABEL_CLS = 'block text-sm font-semibold text-brand-dark mb-1.5';
+import { formatFecha } from '../utils/fechas';
+import { tipoSesion } from '../constants/sesiones';
+import Badge from '../components/ui/Badge';
+import IconButton from '../components/ui/IconButton';
+import Button from '../components/ui/Button';
+import EmptyState from '../components/ui/EmptyState';
+import { Field, Input, Select, Textarea } from '../components/ui/Field';
+import { FILTRO_CLS, ETIQUETA_CLS, clasesIconButton } from '../components/ui/estilos';
 
 const Sesiones = () => {
   const { esAdmin } = useAuth();
@@ -18,6 +23,7 @@ const Sesiones = () => {
   const [editando, setEditando] = useState(null);
   const [filtroPrograma, setFiltroPrograma] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
+  const [guardando, setGuardando] = useState(false);
   const [form, setForm] = useState({
     programa_ids: [], titulo: '', descripcion: '', fecha: '', tipo: 'uno_a_uno_programa', enlace_grabacion: ''
   });
@@ -33,7 +39,7 @@ const Sesiones = () => {
   const { data: programas = [], isLoading: l2 } = useProgramas();
   const { data: npsPromedios = {} } = useNpsPromedios();
   const { data: npsPendientesArr = [] } = useQuery({
-    queryKey: ['npsPendientes'],
+    queryKey: ['nps', 'mis-pendientes'],
     queryFn: () => api.get('/nps/mis-pendientes').then(r => r.data.pendientes || []).catch(() => []),
     enabled: !esAdmin
   });
@@ -64,6 +70,7 @@ const Sesiones = () => {
       toast.error('Selecciona al menos un programa');
       return;
     }
+    setGuardando(true);
     try {
       if (editando) {
         await api.put(`/sesiones/${editando.id}`, form);
@@ -76,22 +83,24 @@ const Sesiones = () => {
       invalidate('sesiones', 'timeline');
     } catch (error) {
       toast.error(error.response?.data?.mensaje || 'Error al guardar');
+    } finally {
+      setGuardando(false);
     }
   };
 
   const eliminar = async (id) => {
-    if (!confirm('¿Eliminar esta sesión?')) return;
+    if (!confirm('¿Eliminar esta sesión? También se borrarán sus seguimientos, asistencias y evaluaciones.')) return;
     try {
       await api.delete(`/sesiones/${id}`);
       toast.success('Sesión eliminada');
       invalidate('sesiones', 'timeline');
-    } catch (error) {
+    } catch {
       toast.error('Error al eliminar');
     }
   };
 
   if (cargando) {
-    return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-cyan"></div></div>;
+    return <div className="flex items-center justify-center h-64" role="status" aria-label="Cargando"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-cyan"></div></div>;
   }
 
   return (
@@ -100,17 +109,17 @@ const Sesiones = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-brand-dark flex items-center gap-2">
-            <div className="p-2 bg-brand-purple/10 rounded-xl"><CalendarDays size={22} className="text-brand-purple" /></div>
+            <div className="p-2 bg-brand-purple/10 rounded-xl"><CalendarDays size={22} className="text-brand-purple" aria-hidden="true" /></div>
             Sesiones
           </h1>
-          <p className="text-gray-400 mt-1 ml-12">Sesiones de seguimiento y talleres</p>
+          <p className="text-gray-500 mt-1 sm:ml-12">Sesiones de seguimiento y talleres</p>
         </div>
         <div className="flex gap-3 flex-wrap">
-          <select value={filtroPrograma} onChange={(e) => setFiltroPrograma(e.target.value)} className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-cyan/40 focus:border-brand-cyan outline-none transition-all">
+          <select aria-label="Filtrar por programa" value={filtroPrograma} onChange={(e) => setFiltroPrograma(e.target.value)} className={FILTRO_CLS}>
             <option value="">Todos los programas</option>
             {programas.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
           </select>
-          <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-cyan/40 focus:border-brand-cyan outline-none transition-all">
+          <select aria-label="Filtrar por tipo" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)} className={FILTRO_CLS}>
             <option value="">Todos los tipos</option>
             <option value="diagnostica_1">Diagnóstica 1</option>
             <option value="diagnostica_2">Diagnóstica 2</option>
@@ -121,110 +130,112 @@ const Sesiones = () => {
             <option value="seguimiento">Seguimiento (legacy)</option>
           </select>
           {esAdmin && (
-            <button onClick={() => abrirModal()} className="bg-brand-dark text-white px-5 py-2.5 rounded-xl hover:bg-brand-dark/90 flex items-center gap-2 text-sm font-medium whitespace-nowrap shadow-sm transition-all hover:shadow-md">
-              <Plus size={18} /> Nueva Sesión
-            </button>
+            <Button icono={Plus} onClick={() => abrirModal()}>Nueva Sesión</Button>
           )}
         </div>
       </div>
 
       {sesiones.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center shadow-sm">
-          <div className="w-16 h-16 bg-brand-purple/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <CalendarDays size={32} className="text-brand-purple" />
-          </div>
-          <p className="text-gray-500 font-medium">No hay sesiones registradas</p>
-          <p className="text-gray-400 text-sm mt-1">Crea tu primera sesión para comenzar</p>
-        </div>
+        <EmptyState
+          icono={CalendarDays}
+          tono="purple"
+          titulo={filtroPrograma || filtroTipo ? 'No hay sesiones con estos filtros' : 'No hay sesiones registradas'}
+          descripcion={filtroPrograma || filtroTipo
+            ? 'Prueba con otro programa o tipo.'
+            : (esAdmin ? 'Crea tu primera sesión para comenzar' : 'Aún no hay sesiones programadas para tu programa')}
+          accion={(filtroPrograma || filtroTipo)
+            ? <Button variante="secondary" onClick={() => { setFiltroPrograma(''); setFiltroTipo(''); }}>Limpiar filtros</Button>
+            : (esAdmin && <Button icono={Plus} onClick={() => abrirModal()}>Nueva Sesión</Button>)}
+        />
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
+              <caption className="sr-only">Sesiones registradas</caption>
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/50">
-                  <th className="text-left py-3.5 px-4 font-semibold text-brand-dark/60 text-xs uppercase tracking-wider">Título</th>
-                  <th className="text-left py-3.5 px-4 font-semibold text-brand-dark/60 text-xs uppercase tracking-wider">Programa</th>
-                  <th className="text-left py-3.5 px-4 font-semibold text-brand-dark/60 text-xs uppercase tracking-wider">Fecha</th>
-                  <th className="text-left py-3.5 px-4 font-semibold text-brand-dark/60 text-xs uppercase tracking-wider">Tipo</th>
-                  <th className="text-left py-3.5 px-4 font-semibold text-brand-dark/60 text-xs uppercase tracking-wider">Grabación</th>
-                  <th className="text-left py-3.5 px-4 font-semibold text-brand-dark/60 text-xs uppercase tracking-wider">{esAdmin ? 'NPS' : 'Evaluación'}</th>
-                  <th className="text-right py-3.5 px-4 font-semibold text-brand-dark/60 text-xs uppercase tracking-wider">Acciones</th>
+                  <th scope="col" className="eyebrow text-left py-3.5 px-4">Título</th>
+                  <th scope="col" className="eyebrow text-left py-3.5 px-4 hidden lg:table-cell">Programa</th>
+                  <th scope="col" className="eyebrow text-left py-3.5 px-4 hidden sm:table-cell">Fecha</th>
+                  <th scope="col" className="eyebrow text-left py-3.5 px-4 hidden md:table-cell">Tipo</th>
+                  <th scope="col" className="eyebrow text-left py-3.5 px-4 hidden lg:table-cell">Grabación</th>
+                  <th scope="col" className="eyebrow text-left py-3.5 px-4">{esAdmin ? 'NPS' : 'Evaluación'}</th>
+                  <th scope="col" className="eyebrow text-right py-3.5 px-4">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {sesiones.map((ses) => (
-                  <tr key={ses.id} className="border-t border-gray-50 hover:bg-brand-cyan/5 transition-colors">
-                    <td className="py-3.5 px-4 font-medium text-brand-dark">{ses.titulo}</td>
-                    <td className="py-3.5 px-4 text-gray-500">
-                      <div className="flex flex-wrap gap-1">
-                        {(ses.programas?.length > 0 ? ses.programas : (ses.programa ? [ses.programa] : [])).map(p => (
-                          <span key={p.id} className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-purple/10 text-brand-purple whitespace-nowrap">
-                            {p.nombre}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-gray-500">{new Date(ses.fecha).toLocaleDateString('es-ES')}</td>
-                    <td className="py-3.5 px-4">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                        ses.tipo === 'taller' ? 'bg-blue-100 text-blue-700' :
-                        ses.tipo === 'uno_a_uno_programa' ? 'bg-cyan-100 text-cyan-700' :
-                        ses.tipo === 'uno_a_uno_taller' ? 'bg-green-100 text-green-700' :
-                        ses.tipo?.startsWith('diagnostica') ? 'bg-purple-100 text-purple-700' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>{
-                        ses.tipo === 'diagnostica_1' ? 'Diagnóstica 1' :
-                        ses.tipo === 'diagnostica_2' ? 'Diagnóstica 2' :
-                        ses.tipo === 'diagnostica_final' ? 'Diagnóstica Final' :
-                        ses.tipo === 'taller' ? 'Taller' :
-                        ses.tipo === 'uno_a_uno_programa' ? '1 a 1 Programa' :
-                        ses.tipo === 'uno_a_uno_taller' ? '1 a 1 Taller' :
-                        'Seguimiento'
-                      }</span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      {ses.enlace_grabacion ? (
-                        <a href={ses.enlace_grabacion} target="_blank" rel="noopener noreferrer" className="text-brand-cyan hover:text-brand-dark flex items-center gap-1 font-medium transition-colors">
-                          <Video size={14} /> Ver
-                        </a>
-                      ) : (
-                        <span className="text-gray-300">-</span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      {esAdmin ? (
-                        npsPromedios[ses.id] ? (
-                          <Link to={`/sesiones/${ses.id}/nps`} className="flex items-center gap-1 text-amber-500 hover:text-amber-600" title={`${npsPromedios[ses.id].total} evaluaciones`}>
-                            <Star size={14} fill="currentColor" />
-                            <span className="text-sm font-bold">{npsPromedios[ses.id].promedio}</span>
-                            <span className="text-[10px] text-gray-400">({npsPromedios[ses.id].total})</span>
-                          </Link>
-                        ) : (
-                          <span className="text-gray-300 text-xs">Sin evaluar</span>
-                        )
-                      ) : (
-                        npsPendientes.has(ses.id) ? (
-                          <Link to={`/sesiones/${ses.id}`} className="flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 rounded-full text-[11px] font-semibold w-fit">
-                            <AlertCircle size={12} /> Pendiente
-                          </Link>
-                        ) : (
-                          <span className="flex items-center gap-1 text-brand-green text-xs font-semibold"><Star size={12} fill="currentColor" /> Enviado</span>
-                        )
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex justify-end gap-1">
-                        <Link to={`/sesiones/${ses.id}`} className="p-2 text-brand-dark hover:bg-brand-cyan/10 rounded-xl transition-colors"><Eye size={15} /></Link>
-                        {esAdmin && (
-                          <>
-                            <button onClick={() => abrirModal(ses)} className="p-2 text-brand-purple hover:bg-brand-purple/10 rounded-xl transition-colors"><Edit size={15} /></button>
-                            <button onClick={() => eliminar(ses.id)} className="p-2 text-red-400 hover:bg-red-50 rounded-xl transition-colors"><Trash2 size={15} /></button>
-                          </>
+                {sesiones.map((ses) => {
+                  const tipo = tipoSesion(ses.tipo);
+                  const programasSesion = ses.programas?.length > 0 ? ses.programas : (ses.programa ? [ses.programa] : []);
+                  return (
+                    <tr key={ses.id} className="border-t border-gray-50 hover:bg-brand-cyan/5 transition-colors">
+                      <td className="py-3.5 px-4">
+                        <Link to={`/sesiones/${ses.id}`} className="font-medium text-brand-dark hover:text-brand-cyan-ink hover:underline">{ses.titulo}</Link>
+                        {/* Resumen de las columnas ocultas en pantallas pequeñas */}
+                        <p className="text-xs text-gray-500 mt-0.5 md:hidden">
+                          <span className="sm:hidden">{formatFecha(ses.fecha)} · </span>{tipo.label}
+                        </p>
+                        {ses.enlace_grabacion && (
+                          <a href={ses.enlace_grabacion} target="_blank" rel="noopener noreferrer" className="lg:hidden inline-flex items-center gap-1 mt-1 text-xs text-brand-cyan-ink font-medium hover:underline">
+                            <Video size={12} aria-hidden="true" /> Ver grabación
+                          </a>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="py-3.5 px-4 hidden lg:table-cell">
+                        <div className="flex flex-wrap gap-1">
+                          {programasSesion.map(p => (
+                            <Badge key={p.id} tono="purple" className="whitespace-nowrap">{p.nombre}</Badge>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-gray-600 hidden sm:table-cell whitespace-nowrap">{formatFecha(ses.fecha)}</td>
+                      <td className="py-3.5 px-4 hidden md:table-cell">
+                        <Badge tono={tipo.tono} className="whitespace-nowrap">{tipo.label}</Badge>
+                      </td>
+                      <td className="py-3.5 px-4 hidden lg:table-cell">
+                        {ses.enlace_grabacion ? (
+                          <a href={ses.enlace_grabacion} target="_blank" rel="noopener noreferrer" aria-label={`Ver grabación de ${ses.titulo}`} className="text-brand-cyan-ink hover:text-brand-dark flex items-center gap-1 font-medium transition-colors">
+                            <Video size={14} aria-hidden="true" /> Ver
+                          </a>
+                        ) : (
+                          <span className="text-gray-500" aria-label="Sin grabación">-</span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        {esAdmin ? (
+                          npsPromedios[ses.id] ? (
+                            <Link to={`/sesiones/${ses.id}/nps`} className="flex items-center gap-1 text-amber-700 hover:text-amber-800" title={`${npsPromedios[ses.id].total} evaluaciones`} aria-label={`NPS ${npsPromedios[ses.id].promedio}, ${npsPromedios[ses.id].total} evaluaciones`}>
+                              <Star size={14} fill="currentColor" className="text-amber-500" aria-hidden="true" />
+                              <span className="text-sm font-bold">{npsPromedios[ses.id].promedio}</span>
+                              <span className="text-xs text-gray-500">({npsPromedios[ses.id].total})</span>
+                            </Link>
+                          ) : (
+                            <span className="text-gray-500 text-xs">Sin evaluar</span>
+                          )
+                        ) : (
+                          npsPendientes.has(ses.id) ? (
+                            <Link to={`/sesiones/${ses.id}`} className="flex items-center gap-1 px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold w-fit">
+                              <AlertCircle size={12} aria-hidden="true" /> Pendiente
+                            </Link>
+                          ) : (
+                            <span className="flex items-center gap-1 text-brand-green-ink text-xs font-semibold"><Star size={12} fill="currentColor" aria-hidden="true" /> Enviado</span>
+                          )
+                        )}
+                      </td>
+                      <td className="py-2 px-2 sm:px-4 text-right">
+                        <div className="flex justify-end gap-0.5">
+                          <Link to={`/sesiones/${ses.id}`} aria-label={`Ver ${ses.titulo}`} title="Ver detalle" className={clasesIconButton({ tono: 'brand' })}><Eye size={15} aria-hidden="true" /></Link>
+                          {esAdmin && (
+                            <>
+                              <IconButton label={`Editar ${ses.titulo}`} icono={Edit} tamanioIcono={15} tono="purple" onClick={() => abrirModal(ses)} />
+                              <IconButton label={`Eliminar ${ses.titulo}`} icono={Trash2} tamanioIcono={15} tono="danger" onClick={() => eliminar(ses.id)} />
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -233,13 +244,13 @@ const Sesiones = () => {
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editando ? 'Editar Sesión' : 'Nueva Sesión'} size="lg">
         <form onSubmit={guardar} className="space-y-5">
-          <div>
-            <label className={LABEL_CLS}>Programas participantes *</label>
+          <fieldset>
+            <legend className={ETIQUETA_CLS}>Programas participantes <span className="text-red-600" aria-hidden="true">*</span></legend>
             <div className="flex flex-wrap gap-2 mt-1">
               {programas.map(p => {
                 const checked = form.programa_ids.includes(p.id);
                 return (
-                  <label key={p.id} className={`flex items-center gap-2 px-3 py-2 border rounded-xl cursor-pointer transition-all text-sm select-none ${checked ? 'border-brand-cyan bg-brand-cyan/5 text-brand-dark font-medium' : 'border-gray-200 text-gray-600 hover:border-brand-cyan/40'}`}>
+                  <label key={p.id} className={`flex items-center gap-2 px-3 py-2 border rounded-xl cursor-pointer transition-all text-sm select-none has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-cyan/60 ${checked ? "border-brand-cyan-ink bg-brand-cyan/5 text-brand-dark font-medium" : "border-gray-300 text-gray-600 hover:border-brand-cyan/40"}`}>
                     <input
                       type="checkbox"
                       value={p.id}
@@ -253,7 +264,7 @@ const Sesiones = () => {
                             : prev.programa_ids.filter(pid => pid !== id)
                         }));
                       }}
-                      className="w-3.5 h-3.5 accent-brand-cyan"
+                      className="size-4 accent-brand-cyan-ink"
                     />
                     {p.nombre}
                   </label>
@@ -261,25 +272,21 @@ const Sesiones = () => {
               })}
             </div>
             {form.programa_ids.length === 0 && (
-              <p className="text-red-400 text-xs mt-1.5">Selecciona al menos un programa</p>
+              <p className="text-red-600 text-xs mt-1.5" role="alert">Selecciona al menos un programa</p>
             )}
-          </div>
-          <div>
-            <label className={LABEL_CLS}>Título *</label>
-            <input type="text" value={form.titulo} onChange={(e) => setForm({...form, titulo: e.target.value})} required className={INPUT_CLS} placeholder="Ej: Sesión de seguimiento #1" />
-          </div>
-          <div>
-            <label className={LABEL_CLS}>Descripción</label>
-            <textarea value={form.descripcion} onChange={(e) => setForm({...form, descripcion: e.target.value})} rows={3} className={`${INPUT_CLS} resize-none`} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={LABEL_CLS}>Fecha *</label>
-              <input type="date" value={form.fecha} onChange={(e) => setForm({...form, fecha: e.target.value})} required className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Tipo *</label>
-              <select value={form.tipo} onChange={(e) => setForm({...form, tipo: e.target.value})} className={INPUT_CLS}>
+          </fieldset>
+          <Field label="Título" requerido>
+            <Input type="text" value={form.titulo} onChange={(e) => setForm({...form, titulo: e.target.value})} placeholder="Ej: Sesión de seguimiento #1" />
+          </Field>
+          <Field label="Descripción">
+            <Textarea value={form.descripcion} onChange={(e) => setForm({...form, descripcion: e.target.value})} rows={3} className="resize-y" />
+          </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Fecha" requerido>
+              <Input type="date" value={form.fecha} onChange={(e) => setForm({...form, fecha: e.target.value})} />
+            </Field>
+            <Field label="Tipo" requerido>
+              <Select value={form.tipo} onChange={(e) => setForm({...form, tipo: e.target.value})}>
                 <option value="diagnostica_1">Diagnóstica 1</option>
                 <option value="diagnostica_2">Diagnóstica 2</option>
                 <option value="diagnostica_final">Diagnóstica Final</option>
@@ -287,16 +294,15 @@ const Sesiones = () => {
                 <option value="uno_a_uno_programa">1 a 1 Programa</option>
                 <option value="uno_a_uno_taller">1 a 1 Taller</option>
                 <option value="seguimiento">Seguimiento (legacy)</option>
-              </select>
-            </div>
+              </Select>
+            </Field>
           </div>
-          <div>
-            <label className={LABEL_CLS}>Enlace de Grabación</label>
-            <input type="url" value={form.enlace_grabacion} onChange={(e) => setForm({...form, enlace_grabacion: e.target.value})} className={INPUT_CLS} placeholder="https://..." />
-          </div>
-          <div className="flex justify-end gap-3 pt-5 border-t border-gray-100">
-            <button type="button" onClick={() => setModalOpen(false)} className="px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-xl font-medium transition-colors">Cancelar</button>
-            <button type="submit" className="px-6 py-2.5 text-sm bg-brand-dark text-white rounded-xl hover:bg-brand-dark/90 font-medium shadow-sm transition-all hover:shadow-md">{editando ? 'Actualizar' : 'Crear Sesión'}</button>
+          <Field label="Enlace de grabación">
+            <Input type="url" value={form.enlace_grabacion} onChange={(e) => setForm({...form, enlace_grabacion: e.target.value})} placeholder="https://..." />
+          </Field>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-5 border-t border-gray-100">
+            <Button variante="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
+            <Button type="submit" cargando={guardando}>{editando ? "Actualizar" : "Crear Sesión"}</Button>
           </div>
         </form>
       </Modal>

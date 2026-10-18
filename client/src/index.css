@@ -9,4 +9,49 @@
   --color-brand-green-light: #eaf7f0;
   --color-brand-purple-light: #f0e8f7;
   --color-brand-dark-light: #e6eaec;
+
+  /* Tonos "ink": mismo matiz, oscurecidos para usarse como texto/icono sobre fondo claro
+     (cian y verde de marca dan ~2:1 sobre blanco; estos superan 4.5:1 WCAG AA) */
+  --color-brand-cyan-ink: #1f7480;
+  --color-brand-green-ink: #277556;
+}
+
+@layer base {
+  /* Tailwind v4 ya no pone cursor:pointer en los botones */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  /* Indicador de foco visible y consistente para navegación con teclado */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-cyan-ink);
+    outline-offset: 2px;
+  }
+
+  /* Sobre superficies oscuras (sidebar, cabeceras con degradado) el cian claro contrasta mejor */
+  .surface-dark :focus-visible {
+    outline-color: var(--color-brand-cyan);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Rótulo pequeño en mayúsculas (antes text-[10px] text-brand-dark/40, ~2.3:1) */
+@utility eyebrow {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wider);
+  color: color-mix(in oklab, var(--color-brand-dark) 70%, transparent);
 }

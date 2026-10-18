@@ -1,12 +1,6 @@
-const DEV_BACKEND_ORIGIN = 'http://localhost:5000';
-
-export const getBackendOrigin = () => {
-  if (import.meta.env.VITE_API_ORIGIN) {
-    return import.meta.env.VITE_API_ORIGIN.replace(/\/$/, '');
-  }
-
-  return import.meta.env.DEV ? DEV_BACKEND_ORIGIN : window.location.origin;
-};
+// En desarrollo Vite redirige /uploads al backend y en producción se sirve desde el mismo
+// origen, así que basta una ruta relativa. VITE_API_ORIGIN permite un backend en otro dominio.
+export const getBackendOrigin = () => (import.meta.env.VITE_API_ORIGIN || '').replace(/\/$/, '');
 
 export const resolveMentorPhotoUrl = (foto) => {
   if (!foto) return null;

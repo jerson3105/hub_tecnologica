@@ -4,38 +4,45 @@ import api from '../services/api';
 
 const AuthContext = createContext(null);
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth debe usarse dentro de AuthProvider');
   return context;
 };
 
-export const AuthProvider = ({ children }) => {
-  const queryClient = useQueryClient();
-  const [usuario, setUsuario] = useState(null);
-  const [cargando, setCargando] = useState(true);
-
-  useEffect(() => {
+// Lee la sesión guardada; un JSON corrupto en localStorage no debe romper la app
+const leerSesionGuardada = () => {
+  try {
     const token = localStorage.getItem('token');
     const usuarioGuardado = localStorage.getItem('usuario');
-    if (token && usuarioGuardado) {
-      setUsuario(JSON.parse(usuarioGuardado));
-      // Verificar token válido
-      api.get('/auth/perfil')
-        .then(res => {
-          setUsuario(res.data.usuario);
-          localStorage.setItem('usuario', JSON.stringify(res.data.usuario));
-        })
-        .catch(() => {
-          localStorage.removeItem('token');
-          localStorage.removeItem('usuario');
-          setUsuario(null);
-          queryClient.clear();
-        })
-        .finally(() => setCargando(false));
-    } else {
-      setCargando(false);
-    }
+    return token && usuarioGuardado ? JSON.parse(usuarioGuardado) : null;
+  } catch {
+    localStorage.removeItem('usuario');
+    return null;
+  }
+};
+
+export const AuthProvider = ({ children }) => {
+  const queryClient = useQueryClient();
+  const [usuario, setUsuario] = useState(leerSesionGuardada);
+  const [cargando, setCargando] = useState(() => leerSesionGuardada() !== null);
+
+  useEffect(() => {
+    if (!leerSesionGuardada()) return;
+    // Verificar que el token siga siendo válido
+    api.get('/auth/perfil')
+      .then(res => {
+        setUsuario(res.data.usuario);
+        localStorage.setItem('usuario', JSON.stringify(res.data.usuario));
+      })
+      .catch(() => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('usuario');
+        setUsuario(null);
+        queryClient.clear();
+      })
+      .finally(() => setCargando(false));
   }, [queryClient]);
 
   const login = async (email, password) => {

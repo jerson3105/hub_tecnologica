@@ -1,12 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { ClipboardCheck, Check, X, Save, Users, UserCheck, UserX, CheckCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
 import { useProgramas, useEmprendimientos } from '../hooks/useQueryHooks';
+import { formatFecha } from '../utils/fechas';
+import Badge from '../components/ui/Badge';
+import Button from '../components/ui/Button';
+import EmptyState from '../components/ui/EmptyState';
+import { Field, Select } from '../components/ui/Field';
 
-const INPUT_CLS = 'w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-cyan/40 focus:border-brand-cyan outline-none transition-all text-sm';
-const LABEL_CLS = 'block text-sm font-semibold text-brand-dark mb-1.5';
+// Programas a los que pertenece la sesión (multi-programa o legacy con programa_id)
+const programasDeSesion = (sesion) => {
+  if (!sesion) return [];
+  if (sesion.programas?.length) return sesion.programas.map(p => p.id);
+  return sesion.programa_id ? [sesion.programa_id] : [];
+};
 
 const Asistencias = () => {
   const [sesionSeleccionada, setSesionSeleccionada] = useState('');
@@ -14,6 +23,7 @@ const Asistencias = () => {
   const [filtroEmprendimiento, setFiltroEmprendimiento] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [listaAsistencia, setListaAsistencia] = useState([]);
+  const [hayCambios, setHayCambios] = useState(false);
 
   const sesParams = filtroPrograma ? { programa_id: filtroPrograma } : {};
   const { data: sesiones = [], isLoading: l1 } = useQuery({
@@ -25,58 +35,75 @@ const Asistencias = () => {
   const { data: emprendimientos = [], isLoading: l2 } = useEmprendimientos(empParams);
   const cargando = l1 || l2;
 
+  const sesion = sesiones.find(s => String(s.id) === String(sesionSeleccionada));
+
+  // Solo los emprendimientos de los programas de la sesión: antes, sin filtro de programa,
+  // la lista incluía a toda la incubadora y se registraba como presente a gente ajena.
+  const emprendimientosSesion = useMemo(() => {
+    const ids = programasDeSesion(sesion);
+    return emprendimientos.filter(e => ids.includes(e.programa_id ?? e.programa?.id));
+  }, [sesion, emprendimientos]);
+
+  const roster = useMemo(() => {
+    const emps = filtroEmprendimiento
+      ? emprendimientosSesion.filter(e => e.id === parseInt(filtroEmprendimiento))
+      : emprendimientosSesion;
+    const usuarios = [];
+    emps.forEach(emp => {
+      emp.integrantes?.forEach(int => {
+        if (int.usuario && !usuarios.find(u => u.id === int.usuario.id)) {
+          usuarios.push({ ...int.usuario, emprendimiento: emp.nombre });
+        }
+      });
+    });
+    return usuarios;
+  }, [emprendimientosSesion, filtroEmprendimiento]);
+
   useEffect(() => {
-    if (sesionSeleccionada) {
-      cargarAsistencia(sesionSeleccionada);
-    }
-  }, [sesionSeleccionada, filtroEmprendimiento]);
+    if (!sesionSeleccionada) return undefined;
+    let cancelado = false;
 
-  const cargarAsistencia = async (sesionId) => {
-    try {
-      const res = await api.get(`/asistencias/sesion/${sesionId}`);
+    api.get(`/asistencias/sesion/${sesionSeleccionada}`)
+      .then(res => {
+        if (cancelado) return;
+        const registros = res.data.asistencias;
+        const hayRegistrosPrevios = registros.length > 0;
+        // Sesión nueva: todos presentes por defecto; con registros previos, ausente si no figura
+        setListaAsistencia(roster.map(usr => {
+          const existente = registros.find(a => a.usuario_id === usr.id);
+          return {
+            usuario_id: usr.id,
+            nombre: `${usr.nombre} ${usr.apellido}`,
+            email: usr.email,
+            emprendimiento: usr.emprendimiento,
+            presente: existente ? existente.presente : !hayRegistrosPrevios,
+            observacion: existente?.observacion || ''
+          };
+        }));
+        setHayCambios(false);
+      })
+      .catch(() => { if (!cancelado) toast.error('Error al cargar asistencia'); });
 
-      // Obtener integrantes, opcionalmente filtrados por emprendimiento
-      const empsFiltrados = filtroEmprendimiento
-        ? emprendimientos.filter(e => e.id === parseInt(filtroEmprendimiento))
-        : emprendimientos;
+    return () => { cancelado = true; };
+  }, [sesionSeleccionada, roster]);
 
-      const todosUsuarios = [];
-      empsFiltrados.forEach(emp => {
-        emp.integrantes?.forEach(int => {
-          if (int.usuario && !todosUsuarios.find(u => u.id === int.usuario.id)) {
-            todosUsuarios.push({ ...int.usuario, emprendimiento: emp.nombre });
-          }
-        });
-      });
+  const confirmarDescartar = () => !hayCambios || window.confirm('Tienes cambios de asistencia sin guardar. ¿Descartarlos?');
 
-      const hayRegistrosPrevios = res.data.asistencias.length > 0;
-
-      // Crear lista de asistencia — default to PRESENTE for new sessions
-      const lista = todosUsuarios.map(usr => {
-        const asistenciaExistente = res.data.asistencias.find(a => a.usuario_id === usr.id);
-        return {
-          usuario_id: usr.id,
-          nombre: `${usr.nombre} ${usr.apellido}`,
-          email: usr.email,
-          emprendimiento: usr.emprendimiento,
-          presente: asistenciaExistente ? asistenciaExistente.presente : (hayRegistrosPrevios ? false : true),
-          observacion: asistenciaExistente?.observacion || ''
-        };
-      });
-      setListaAsistencia(lista);
-    } catch (error) {
-      toast.error('Error al cargar asistencia');
-    }
+  const cambiarSesion = (valor) => {
+    if (!confirmarDescartar()) return;
+    setSesionSeleccionada(valor);
+    setFiltroEmprendimiento('');
+    if (!valor) setListaAsistencia([]);
   };
 
-  const toggleAsistencia = (index) => {
-    const nueva = [...listaAsistencia];
-    nueva[index].presente = !nueva[index].presente;
-    setListaAsistencia(nueva);
+  const toggleAsistencia = (usuarioId) => {
+    setListaAsistencia(prev => prev.map(item => (item.usuario_id === usuarioId ? { ...item, presente: !item.presente } : item)));
+    setHayCambios(true);
   };
 
   const marcarTodos = (valor) => {
     setListaAsistencia(prev => prev.map(item => ({ ...item, presente: valor })));
+    setHayCambios(true);
   };
 
   const guardarAsistencia = async () => {
@@ -95,8 +122,9 @@ const Asistencias = () => {
           observacion: a.observacion
         }))
       });
+      setHayCambios(false);
       toast.success('Asistencia guardada');
-    } catch (error) {
+    } catch {
       toast.error('Error al guardar asistencia');
     } finally {
       setGuardando(false);
@@ -104,7 +132,7 @@ const Asistencias = () => {
   };
 
   if (cargando) {
-    return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-cyan"></div></div>;
+    return <div className="flex items-center justify-center h-64" role="status" aria-label="Cargando"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-cyan"></div></div>;
   }
 
   const totalPresentes = listaAsistencia.filter(a => a.presente).length;
@@ -116,36 +144,46 @@ const Asistencias = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-brand-dark flex items-center gap-2">
-          <div className="p-2 bg-brand-cyan/10 rounded-xl"><ClipboardCheck size={22} className="text-brand-cyan" /></div>
+          <div className="p-2 bg-brand-cyan/10 rounded-xl"><ClipboardCheck size={22} className="text-brand-cyan-ink" aria-hidden="true" /></div>
           Asistencias
         </h1>
-        <p className="text-gray-400 mt-1 ml-12">Registro de asistencia a sesiones</p>
+        <p className="text-gray-500 mt-1 sm:ml-12">Registro de asistencia a sesiones</p>
       </div>
 
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className={LABEL_CLS}>Programa</label>
-            <select value={filtroPrograma} onChange={(e) => { setFiltroPrograma(e.target.value); setSesionSeleccionada(''); setFiltroEmprendimiento(''); }} className={INPUT_CLS}>
+          <Field label="Programa">
+            <Select
+              value={filtroPrograma}
+              onChange={(e) => {
+                if (!confirmarDescartar()) return;
+                setFiltroPrograma(e.target.value);
+                setSesionSeleccionada('');
+                setFiltroEmprendimiento('');
+                setListaAsistencia([]);
+              }}
+            >
               <option value="">Todos los programas</option>
               {programas.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={LABEL_CLS}>Sesión</label>
-            <select value={sesionSeleccionada} onChange={(e) => setSesionSeleccionada(e.target.value)} className={INPUT_CLS}>
+            </Select>
+          </Field>
+          <Field label="Sesión">
+            <Select value={sesionSeleccionada} onChange={(e) => cambiarSesion(e.target.value)}>
               <option value="">Seleccionar sesión</option>
-              {sesiones.map(s => <option key={s.id} value={s.id}>{s.titulo} - {new Date(s.fecha).toLocaleDateString('es-ES')}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={LABEL_CLS}>Emprendimiento</label>
-            <select value={filtroEmprendimiento} onChange={(e) => setFiltroEmprendimiento(e.target.value)} className={INPUT_CLS}>
-              <option value="">Todos los emprendimientos</option>
-              {emprendimientos.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
-            </select>
-          </div>
+              {sesiones.map(s => <option key={s.id} value={s.id}>{s.titulo} - {formatFecha(s.fecha)}</option>)}
+            </Select>
+          </Field>
+          <Field label="Emprendimiento">
+            <Select
+              value={filtroEmprendimiento}
+              onChange={(e) => setFiltroEmprendimiento(e.target.value)}
+              disabled={!sesionSeleccionada}
+            >
+              <option value="">Todos los de la sesión</option>
+              {emprendimientosSesion.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+            </Select>
+          </Field>
         </div>
       </div>
 
@@ -154,42 +192,38 @@ const Asistencias = () => {
         <div className="space-y-4">
           {/* Stats bar */}
           <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between mb-3">
+              <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-brand-green/10 rounded-lg"><UserCheck size={16} className="text-brand-green" /></div>
+                  <div className="p-1.5 bg-brand-green/10 rounded-lg"><UserCheck size={16} className="text-brand-green-ink" aria-hidden="true" /></div>
                   <div>
-                    <p className="text-lg font-bold text-brand-green">{totalPresentes}</p>
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Presentes</p>
+                    <p className="text-lg font-bold text-brand-green-ink tabular-nums">{totalPresentes}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Presentes</p>
                   </div>
                 </div>
-                <div className="w-px h-10 bg-gray-100"></div>
+                <div className="w-px h-10 bg-gray-100" aria-hidden="true"></div>
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-red-50 rounded-lg"><UserX size={16} className="text-red-400" /></div>
+                  <div className="p-1.5 bg-red-50 rounded-lg"><UserX size={16} className="text-red-600" aria-hidden="true" /></div>
                   <div>
-                    <p className="text-lg font-bold text-red-400">{totalAusentes}</p>
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Ausentes</p>
+                    <p className="text-lg font-bold text-red-700 tabular-nums">{totalAusentes}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Ausentes</p>
                   </div>
                 </div>
-                <div className="w-px h-10 bg-gray-100"></div>
+                <div className="w-px h-10 bg-gray-100" aria-hidden="true"></div>
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-brand-cyan/10 rounded-lg"><Users size={16} className="text-brand-cyan" /></div>
+                  <div className="p-1.5 bg-brand-cyan/10 rounded-lg"><Users size={16} className="text-brand-cyan-ink" aria-hidden="true" /></div>
                   <div>
-                    <p className="text-lg font-bold text-brand-dark">{porcentaje}%</p>
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Asistencia</p>
+                    <p className="text-lg font-bold text-brand-dark tabular-nums">{porcentaje}%</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Asistencia</p>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => marcarTodos(true)} className="px-3 py-1.5 text-xs text-brand-green hover:bg-brand-green/10 rounded-xl border border-brand-green/20 font-medium flex items-center gap-1 transition-colors">
-                  <CheckCheck size={13} /> Todos presentes
-                </button>
-                <button onClick={() => marcarTodos(false)} className="px-3 py-1.5 text-xs text-red-400 hover:bg-red-50 rounded-xl border border-red-200/50 font-medium flex items-center gap-1 transition-colors">
-                  <X size={13} /> Todos ausentes
-                </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variante="texto" tono="success" tamanio="sm" icono={CheckCheck} onClick={() => marcarTodos(true)} className="border border-brand-green/40">Todos presentes</Button>
+                <Button variante="texto" tono="danger" tamanio="sm" icono={X} onClick={() => marcarTodos(false)} className="border border-red-200">Todos ausentes</Button>
               </div>
             </div>
-            <div className="w-full bg-gray-100 rounded-full h-2">
+            <div className="w-full bg-gray-100 rounded-full h-2" role="progressbar" aria-valuenow={porcentaje} aria-valuemin={0} aria-valuemax={100} aria-label="Porcentaje de asistencia">
               <div className="h-2 rounded-full bg-brand-green transition-all duration-500" style={{ width: `${porcentaje}%` }}></div>
             </div>
           </div>
@@ -197,37 +231,40 @@ const Asistencias = () => {
           {/* Attendance cards */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-              <p className="text-[11px] font-bold text-brand-dark/40 uppercase tracking-wider">Lista de asistencia</p>
-              <p className="text-xs text-gray-400">{listaAsistencia.length} participante(s)</p>
+              <p className="eyebrow">Lista de asistencia</p>
+              <p className="text-xs text-gray-500">{listaAsistencia.length} participante(s)</p>
             </div>
             <div className="divide-y divide-gray-50">
-              {listaAsistencia.map((item, index) => (
-                <div key={item.usuario_id} className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${
-                      item.presente ? 'bg-brand-green/15 text-brand-green' : 'bg-gray-100 text-gray-400'
-                    }`}>
+              {listaAsistencia.map((item) => (
+                <div key={item.usuario_id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 hover:bg-gray-50/50 transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-8 h-8 shrink-0 rounded-xl flex items-center justify-center text-xs font-bold ${
+                      item.presente ? 'bg-brand-green/15 text-brand-green-ink' : 'bg-gray-100 text-gray-500'
+                    }`} aria-hidden="true">
                       {item.nombre.charAt(0)}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-semibold text-brand-dark text-sm">{item.nombre}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-gray-400">{item.email}</span>
+                      <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                        <span className="text-xs text-gray-500 break-all">{item.email}</span>
                         {item.emprendimiento && (
-                          <span className="text-[10px] text-brand-purple bg-brand-purple/10 px-1.5 py-0.5 rounded-md font-medium">{item.emprendimiento}</span>
+                          <Badge tono="purple" forma="tag">{item.emprendimiento}</Badge>
                         )}
                       </div>
                     </div>
                   </div>
                   <button
-                    onClick={() => toggleAsistencia(index)}
+                    type="button"
+                    onClick={() => toggleAsistencia(item.usuario_id)}
+                    aria-pressed={item.presente}
+                    aria-label={`${item.nombre}: ${item.presente ? 'presente' : 'ausente'}. Cambiar`}
                     className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                       item.presente
-                        ? 'bg-brand-green/10 text-brand-green border border-brand-green/20 hover:bg-brand-green/20'
-                        : 'bg-red-50 text-red-400 border border-red-200/50 hover:bg-red-100/50'
+                        ? 'bg-brand-green/10 text-brand-green-ink border border-brand-green/40 hover:bg-brand-green/20'
+                        : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100/50'
                     }`}
                   >
-                    {item.presente ? <><Check size={14} /> Presente</> : <><X size={14} /> Ausente</>}
+                    {item.presente ? <><Check size={14} aria-hidden="true" /> Presente</> : <><X size={14} aria-hidden="true" /> Ausente</>}
                   </button>
                 </div>
               ))}
@@ -235,35 +272,34 @@ const Asistencias = () => {
           </div>
 
           {/* Save button */}
-          <button
+          <Button
+            tamanio="lg"
+            icono={Save}
+            cargando={guardando}
             onClick={guardarAsistencia}
-            disabled={guardando}
-            className="w-full bg-brand-dark text-white py-3 rounded-2xl hover:bg-brand-dark/90 flex items-center justify-center gap-2 font-medium disabled:opacity-50 shadow-sm transition-all hover:shadow-md text-sm"
+            className="w-full"
           >
-            {guardando ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div> : <Save size={18} />}
-            {guardando ? 'Guardando...' : 'Guardar Asistencia'}
-          </button>
+            {guardando ? 'Guardando...' : hayCambios ? 'Guardar Asistencia (cambios sin guardar)' : 'Guardar Asistencia'}
+          </Button>
         </div>
       )}
 
       {sesionSeleccionada && listaAsistencia.length === 0 && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center shadow-sm">
-          <div className="w-16 h-16 bg-brand-cyan/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Users size={32} className="text-brand-cyan" />
-          </div>
-          <p className="text-gray-500 font-medium">No hay integrantes para registrar asistencia</p>
-          <p className="text-xs text-gray-400 mt-1">Asegúrate de que el programa tenga emprendimientos con integrantes asignados</p>
-        </div>
+        <EmptyState
+          icono={Users}
+          tono="cyan"
+          titulo="No hay integrantes para registrar asistencia"
+          descripcion="Los programas de esta sesión no tienen emprendimientos con integrantes asignados"
+        />
       )}
 
       {!sesionSeleccionada && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-16 text-center shadow-sm">
-          <div className="w-16 h-16 bg-brand-cyan/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <ClipboardCheck size={32} className="text-brand-cyan" />
-          </div>
-          <p className="text-gray-500 font-medium">Selecciona una sesión para registrar asistencia</p>
-          <p className="text-xs text-gray-400 mt-1">Elige un programa y sesión en los filtros de arriba</p>
-        </div>
+        <EmptyState
+          icono={ClipboardCheck}
+          tono="cyan"
+          titulo="Selecciona una sesión para registrar asistencia"
+          descripcion="Elige un programa y sesión en los filtros de arriba"
+        />
       )}
     </div>
   );

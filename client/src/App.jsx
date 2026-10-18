@@ -1,37 +1,45 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Programas from './pages/Programas';
-import ProgramaDetalle from './pages/ProgramaDetalle';
-import Emprendimientos from './pages/Emprendimientos';
-import EmprendimientoDetalle from './pages/EmprendimientoDetalle';
-import Sesiones from './pages/Sesiones';
-import SesionDetalle from './pages/SesionDetalle';
-import Archivos from './pages/Archivos';
-import Usuarios from './pages/Usuarios';
-import Asistencias from './pages/Asistencias';
-import Perfil from './pages/Perfil';
-import MiEmprendimiento from './pages/MiEmprendimiento';
-import MisArchivos from './pages/MisArchivos';
-import OnePager from './pages/OnePager';
-import Bmc from './pages/Bmc';
-import SesionNps from './pages/SesionNps';
-import Reportes from './pages/Reportes';
-import Mentores from './pages/Mentores';
-import MisMentores from './pages/MisMentores';
-import SeguimientoV2 from './pages/SeguimientoV2';
-import MisObjetivos from './pages/MisObjetivos';
-import MiSeguimiento from './pages/MiSeguimiento';
-import ErrorBoundary from './components/ErrorBoundary';
 import './App.css';
+
+// Cada página se descarga al visitarla: un emprendedor no baja el código del panel de admin
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Programas = lazy(() => import('./pages/Programas'));
+const ProgramaDetalle = lazy(() => import('./pages/ProgramaDetalle'));
+const Emprendimientos = lazy(() => import('./pages/Emprendimientos'));
+const EmprendimientoDetalle = lazy(() => import('./pages/EmprendimientoDetalle'));
+const Sesiones = lazy(() => import('./pages/Sesiones'));
+const SesionDetalle = lazy(() => import('./pages/SesionDetalle'));
+const Archivos = lazy(() => import('./pages/Archivos'));
+const Usuarios = lazy(() => import('./pages/Usuarios'));
+const Asistencias = lazy(() => import('./pages/Asistencias'));
+const Perfil = lazy(() => import('./pages/Perfil'));
+const MiEmprendimiento = lazy(() => import('./pages/MiEmprendimiento'));
+const MisArchivos = lazy(() => import('./pages/MisArchivos'));
+const OnePager = lazy(() => import('./pages/OnePager'));
+const Bmc = lazy(() => import('./pages/Bmc'));
+const SesionNps = lazy(() => import('./pages/SesionNps'));
+const Reportes = lazy(() => import('./pages/Reportes'));
+const Mentores = lazy(() => import('./pages/Mentores'));
+const MisMentores = lazy(() => import('./pages/MisMentores'));
+const SeguimientoV2 = lazy(() => import('./pages/SeguimientoV2'));
+const MisObjetivos = lazy(() => import('./pages/MisObjetivos'));
+const MiSeguimiento = lazy(() => import('./pages/MiSeguimiento'));
+
+const Cargando = ({ pantallaCompleta = false }) => (
+  <div className={`${pantallaCompleta ? 'min-h-screen' : 'h-64'} flex items-center justify-center`} role="status" aria-label="Cargando">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-cyan"></div>
+  </div>
+);
 
 const RedirectByRole = () => {
   const { usuario, cargando } = useAuth();
-  if (cargando) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
+  if (cargando) return <Cargando pantallaCompleta />;
   if (!usuario) return <Navigate to="/login" replace />;
   return usuario.rol === 'admin' ? <Navigate to="/dashboard" replace /> : <Navigate to="/mi-emprendimiento" replace />;
 };
@@ -41,6 +49,7 @@ function App() {
     <AuthProvider>
       <Router>
         <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+        <Suspense fallback={<Cargando pantallaCompleta />}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<RedirectByRole />} />
@@ -78,6 +87,7 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </Router>
     </AuthProvider>
   );

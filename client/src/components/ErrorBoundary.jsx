@@ -31,7 +31,7 @@ class ErrorBoundary extends Component {
             <p className="text-sm text-gray-500 mb-6">
               Ocurrió un error inesperado. Puedes intentar recargar esta sección.
             </p>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <pre className="text-xs text-left bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4 overflow-auto max-h-32 text-red-600">
                 {this.state.error.toString()}
               </pre>

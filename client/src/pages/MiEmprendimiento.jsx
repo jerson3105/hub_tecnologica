@@ -6,15 +6,15 @@ import { useAuth } from '../context/AuthContext';
 import { Rocket, Users, ClipboardList, FileUp, CalendarDays, AlertCircle, UserPlus, X, Crown, KeyRound, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useEmprendimientos, useInvalidate } from '../hooks/useQueryHooks';
+import IntegranteFields from '../components/IntegranteFields';
+import Button from '../components/ui/Button';
+import IconButton from '../components/ui/IconButton';
+import Badge from '../components/ui/Badge';
+import { Field, Input } from '../components/ui/Field';
+import { DATOS_INTEGRANTE_VACIOS } from '../constants/integrantes';
+import { ESTADOS_EMPRENDIMIENTO, estadoDe } from '../constants/estados';
 
-const INPUT_CLS = 'w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-brand-cyan/40 focus:border-brand-cyan outline-none transition-all text-sm';
-const LABEL_CLS = 'block text-sm font-semibold text-brand-dark mb-1.5';
-
-const formIntegranteVacio = {
-  nombre: '', apellido: '', dni: '', edad: '', fecha_nacimiento: '', telefono: '',
-  email: '', direccion: '', distrito: '', provincia: '', ciudad: '', linkedin: '',
-  genero: '', area: '', cargo: '', dedicacion: '', rol_emprendimiento: ''
-};
+const formIntegranteVacio = { ...DATOS_INTEGRANTE_VACIOS, rol_emprendimiento: '' };
 
 const MiEmprendimiento = () => {
   const { usuario } = useAuth();
@@ -122,7 +122,7 @@ const MiEmprendimiento = () => {
           <AlertCircle size={32} className="text-brand-purple" />
         </div>
         <h2 className="text-xl font-bold text-brand-dark mb-2">Sin emprendimiento asignado</h2>
-        <p className="text-gray-400">Aún no has sido asignado a ningún emprendimiento. Contacta al equipo técnico.</p>
+        <p className="text-gray-500">Aún no has sido asignado a ningún emprendimiento. Contacta al equipo técnico.</p>
       </div>
     );
   }
@@ -148,26 +148,13 @@ const MiEmprendimiento = () => {
                     <h2 className="text-xl font-bold text-brand-dark flex items-center gap-2">
                       <Rocket size={22} className="text-brand-purple" /> {emp.nombre}
                     </h2>
-                    <p className="text-gray-400 mt-1 ml-8">{emp.programa?.nombre} {emp.sector ? `· ${emp.sector}` : ''}</p>
+                    <p className="text-gray-500 mt-1 sm:ml-8">{emp.programa?.nombre} {emp.sector ? `· ${emp.sector}` : ''}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {soyLider && (
-                      <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-600 flex items-center gap-1">
-                        <Crown size={11} /> Líder
-                      </span>
-                    )}
-                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1.5 ${
-                      emp.estado === 'activo' ? 'bg-brand-green/15 text-brand-green' :
-                      emp.estado === 'graduado' ? 'bg-brand-cyan/15 text-brand-dark' :
-                      'bg-gray-100 text-gray-500'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${
-                        emp.estado === 'activo' ? 'bg-brand-green' :
-                        emp.estado === 'graduado' ? 'bg-brand-cyan' :
-                        'bg-gray-400'
-                      }`}></span>
-                      {emp.estado}
-                    </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {soyLider && <Badge tono="amber" icono={Crown}>Líder</Badge>}
+                    <Badge tono={estadoDe(ESTADOS_EMPRENDIMIENTO, emp.estado).tono} punto>
+                      {estadoDe(ESTADOS_EMPRENDIMIENTO, emp.estado).label}
+                    </Badge>
                   </div>
                 </div>
                 {emp.descripcion && <p className="text-gray-600 mb-5 leading-relaxed text-sm">{emp.descripcion}</p>}
@@ -175,66 +162,65 @@ const MiEmprendimiento = () => {
                 {/* Integrantes */}
                 <div className="border-t border-gray-100 pt-5">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-brand-dark/60 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                    <h3 className="eyebrow text-sm flex items-center gap-1.5">
                       <Users size={14} /> Equipo
                     </h3>
                     {soyLider && (
-                      <button onClick={() => abrirModalIntegrante(emp)} className="px-3 py-1.5 text-sm text-brand-green hover:bg-brand-green/10 rounded-xl flex items-center gap-1 border border-brand-green/20 font-medium transition-colors">
-                        <UserPlus size={14} /> Agregar Integrante
-                      </button>
+                      <Button variante="secondary" tamanio="sm" icono={UserPlus} onClick={() => abrirModalIntegrante(emp)}>
+                        Agregar Integrante
+                      </Button>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {emp.integrantes?.map((int) => (
-                      <div key={int.id} className="flex items-center gap-2 bg-brand-cyan/5 border border-brand-cyan/10 px-3 py-2 rounded-xl text-sm group hover:bg-brand-cyan/10 transition-colors">
-                        <div className="w-7 h-7 bg-brand-cyan/15 rounded-lg flex items-center justify-center text-xs font-bold text-brand-cyan">
-                          {int.usuario?.nombre?.[0]}
-                        </div>
-                        {int.es_lider && <span className="px-1.5 py-0.5 bg-amber-100 text-amber-600 rounded-md text-[10px] font-semibold">Líder</span>}
-                        <span className="text-brand-dark font-medium">{int.usuario?.nombre} {int.usuario?.apellido}</span>
-                        {int.rol_emprendimiento && <span className="text-gray-400 text-xs">({int.rol_emprendimiento})</span>}
-                        {soyLider && int.usuario_id !== usuario?.id && (
-                          <>
-                            <button onClick={() => resetearPasswordIntegrante(emp.id, int)} className="text-gray-300 hover:text-brand-cyan ml-1 transition-colors" title="Generar contraseña temporal">
-                              <KeyRound size={14} />
-                            </button>
-                            <button onClick={() => eliminarIntegrante(emp.id, int.id)} className="text-gray-300 hover:text-red-500 transition-colors" title="Eliminar integrante">
-                              <X size={14} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    ))}
+                  <ul className="flex flex-wrap gap-2">
+                    {emp.integrantes?.map((int) => {
+                      const nombre = `${int.usuario?.nombre || ''} ${int.usuario?.apellido || ''}`.trim();
+                      return (
+                        <li key={int.id} className="flex items-center gap-2 bg-brand-cyan/5 border border-brand-cyan/10 pl-3 pr-1 py-1.5 rounded-xl text-sm hover:bg-brand-cyan/10 transition-colors">
+                          <div className="w-7 h-7 bg-brand-cyan/15 rounded-lg flex items-center justify-center text-xs font-bold text-brand-cyan-ink" aria-hidden="true">
+                            {int.usuario?.nombre?.[0]}
+                          </div>
+                          {int.es_lider && <Badge tono="amber" forma="tag">Líder</Badge>}
+                          <span className="text-brand-dark font-medium">{nombre}</span>
+                          {int.rol_emprendimiento && <span className="text-gray-500 text-xs">({int.rol_emprendimiento})</span>}
+                          {soyLider && int.usuario_id !== usuario?.id && (
+                            <span className="flex items-center ml-1">
+                              <IconButton label={`Generar contraseña temporal para ${nombre}`} icono={KeyRound} tamanioIcono={15} tono="cyan" onClick={() => resetearPasswordIntegrante(emp.id, int)} />
+                              <IconButton label={`Quitar a ${nombre} del equipo`} icono={X} tamanioIcono={15} tono="danger" onClick={() => eliminarIntegrante(emp.id, int.id)} />
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
                     {(!emp.integrantes || emp.integrantes.length === 0) && (
-                      <p className="text-sm text-gray-300">Sin integrantes asignados</p>
+                      <li className="text-sm text-gray-500">Sin integrantes asignados</li>
                     )}
-                  </div>
+                  </ul>
                 </div>
               </div>
             </div>
 
             {/* Quick Links */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Link to={`/emprendimientos/${emp.id}`} className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-brand-purple/20 transition-all text-center group shadow-sm">
+              <Link to="/mi-seguimiento" className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-brand-purple/20 transition-all text-center group shadow-sm">
                 <div className="w-12 h-12 bg-brand-purple/10 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-purple/15 transition-colors">
                   <ClipboardList size={22} className="text-brand-purple" />
                 </div>
                 <p className="font-semibold text-brand-dark">Ver Seguimiento</p>
-                <p className="text-xs text-gray-400 mt-1">Historial de avances</p>
+                <p className="text-xs text-gray-500 mt-1">Historial de avances</p>
               </Link>
               <Link to="/mis-archivos" className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-brand-green/20 transition-all text-center group shadow-sm">
                 <div className="w-12 h-12 bg-brand-green/10 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-green/15 transition-colors">
-                  <FileUp size={22} className="text-brand-green" />
+                  <FileUp size={22} className="text-brand-green-ink" />
                 </div>
                 <p className="font-semibold text-brand-dark">Mis Materiales</p>
-                <p className="text-xs text-gray-400 mt-1">Enlaces y recursos compartidos</p>
+                <p className="text-xs text-gray-500 mt-1">Enlaces y recursos compartidos</p>
               </Link>
               <Link to="/sesiones" className="bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-brand-cyan/20 transition-all text-center group shadow-sm">
                 <div className="w-12 h-12 bg-brand-cyan/10 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-cyan/15 transition-colors">
-                  <CalendarDays size={22} className="text-brand-cyan" />
+                  <CalendarDays size={22} className="text-brand-cyan-ink" />
                 </div>
                 <p className="font-semibold text-brand-dark">Sesiones</p>
-                <p className="text-xs text-gray-400 mt-1">Grabaciones y talleres</p>
+                <p className="text-xs text-gray-500 mt-1">Grabaciones y talleres</p>
               </Link>
             </div>
           </div>
@@ -242,115 +228,39 @@ const MiEmprendimiento = () => {
       })}
 
       {/* Modal Agregar Integrante */}
-      <Modal isOpen={modalIntegrante} onClose={() => setModalIntegrante(false)} title={`Agregar Integrante a ${empSeleccionado?.nombre}`} size="xl">
-        <form onSubmit={agregarIntegrante} className="space-y-5">
-          <p className="text-xs text-gray-500 bg-brand-cyan/5 border border-brand-cyan/10 p-3 rounded-xl">Ingresa los datos del integrante. Si el correo no existe, se creará una cuenta automáticamente. Si ya existe y no pertenece a otro emprendimiento, se vinculará esa cuenta.</p>
+      <Modal isOpen={modalIntegrante} onClose={() => setModalIntegrante(false)} title={`Agregar Integrante a ${empSeleccionado?.nombre || ''}`} size="xl">
+        <form onSubmit={agregarIntegrante} className="space-y-6">
+          <p className="text-sm text-gray-600 bg-brand-cyan/5 border border-brand-cyan/10 p-3 rounded-xl">Ingresa los datos del nuevo integrante: se creará su cuenta y verás una contraseña temporal para compartirle. Si la persona ya tiene una cuenta, pide al equipo técnico que la asigne a tu emprendimiento.</p>
 
-          <p className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-wider">Datos Personales</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={LABEL_CLS}>Nombres *</label>
-              <input type="text" value={formIntegrante.nombre} onChange={(e) => setField('nombre', e.target.value)} required className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Apellidos *</label>
-              <input type="text" value={formIntegrante.apellido} onChange={(e) => setField('apellido', e.target.value)} required className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>DNI</label>
-              <input type="text" value={formIntegrante.dni} onChange={(e) => setField('dni', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Edad</label>
-              <input type="number" value={formIntegrante.edad} onChange={(e) => setField('edad', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Fecha de Nacimiento</label>
-              <input type="date" value={formIntegrante.fecha_nacimiento} onChange={(e) => setField('fecha_nacimiento', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Género</label>
-              <select value={formIntegrante.genero} onChange={(e) => setField('genero', e.target.value)} className={INPUT_CLS}>
-                <option value="">Seleccionar</option>
-                <option value="masculino">Hombre</option>
-                <option value="femenino">Mujer</option>
-              </select>
-            </div>
-          </div>
+          <IntegranteFields valores={formIntegrante} onCambio={setField} />
 
-          <p className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-wider pt-2">Contacto y Ubicación</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={LABEL_CLS}>Correo *</label>
-              <input type="email" value={formIntegrante.email} onChange={(e) => setField('email', e.target.value)} required className={INPUT_CLS} />
+          <fieldset>
+            <legend className="eyebrow mb-3">Rol en el equipo</legend>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Rol en el emprendimiento">
+                <Input type="text" value={formIntegrante.rol_emprendimiento} onChange={(e) => setField('rol_emprendimiento', e.target.value)} placeholder="Ej: Co-fundador, Desarrollador..." />
+              </Field>
             </div>
-            <div>
-              <label className={LABEL_CLS}>Celular</label>
-              <input type="text" value={formIntegrante.telefono} onChange={(e) => setField('telefono', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className={LABEL_CLS}>Dirección</label>
-              <input type="text" value={formIntegrante.direccion} onChange={(e) => setField('direccion', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Distrito</label>
-              <input type="text" value={formIntegrante.distrito} onChange={(e) => setField('distrito', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Provincia</label>
-              <input type="text" value={formIntegrante.provincia} onChange={(e) => setField('provincia', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Ciudad</label>
-              <input type="text" value={formIntegrante.ciudad} onChange={(e) => setField('ciudad', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>LinkedIn</label>
-              <input type="text" value={formIntegrante.linkedin} onChange={(e) => setField('linkedin', e.target.value)} placeholder="https://linkedin.com/in/..." className={INPUT_CLS} />
-            </div>
-          </div>
+          </fieldset>
 
-          <p className="text-[10px] font-bold text-brand-dark/40 uppercase tracking-wider pt-2">Rol en el Equipo</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={LABEL_CLS}>Área</label>
-              <input type="text" value={formIntegrante.area} onChange={(e) => setField('area', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Cargo</label>
-              <input type="text" value={formIntegrante.cargo} onChange={(e) => setField('cargo', e.target.value)} className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>% de Dedicación</label>
-              <input type="number" value={formIntegrante.dedicacion} onChange={(e) => setField('dedicacion', e.target.value)} min="0" max="100" placeholder="0-100" className={INPUT_CLS} />
-            </div>
-            <div>
-              <label className={LABEL_CLS}>Rol en el emprendimiento</label>
-              <input type="text" value={formIntegrante.rol_emprendimiento} onChange={(e) => setField('rol_emprendimiento', e.target.value)} placeholder="Ej: Co-fundador, Desarrollador..." className={INPUT_CLS} />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-5 border-t border-gray-100">
-            <button type="button" onClick={() => setModalIntegrante(false)} className="px-5 py-2.5 text-sm text-gray-600 hover:bg-gray-100 rounded-xl font-medium transition-colors">Cancelar</button>
-            <button type="submit" disabled={agregando} className="px-6 py-2.5 text-sm bg-brand-dark text-white rounded-xl hover:bg-brand-dark/90 disabled:opacity-50 flex items-center gap-2 font-medium shadow-sm transition-all hover:shadow-md">
-              {agregando ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <UserPlus size={16} />}
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-5 border-t border-gray-100">
+            <Button variante="ghost" onClick={() => setModalIntegrante(false)}>Cancelar</Button>
+            <Button type="submit" cargando={agregando} icono={UserPlus}>
               {agregando ? 'Agregando...' : 'Agregar Integrante'}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
 
       <Modal isOpen={!!modalPassword} onClose={() => setModalPassword(null)} title={modalPassword?.titulo || 'Contraseña temporal'} size="sm">
         <div className="text-center space-y-4">
-          <p className="text-sm text-gray-500">{modalPassword?.descripcion || 'La contraseña temporal es:'}</p>
+          <p className="text-sm text-gray-600">{modalPassword?.descripcion || 'La contraseña temporal es:'}</p>
           <div className="flex items-center justify-center gap-2">
             <code className="bg-gray-50 px-5 py-2.5 rounded-xl border border-gray-200 text-xl font-mono text-brand-dark">{modalPassword?.password}</code>
-            <button type="button" onClick={() => copiarAlPortapapeles(modalPassword?.password || '')} className="p-2 text-brand-cyan hover:bg-brand-cyan/10 rounded-xl transition-colors">
-              <Copy size={18} />
-            </button>
+            <IconButton label="Copiar contraseña" icono={Copy} tamanioIcono={18} tono="cyan" onClick={() => copiarAlPortapapeles(modalPassword?.password || '')} />
           </div>
-          <p className="text-xs text-gray-400">Esta contraseña sólo se muestra una vez desde esta vista.</p>
-          <button type="button" onClick={() => setModalPassword(null)} className="px-6 py-2.5 text-sm bg-brand-dark text-white rounded-xl hover:bg-brand-dark/90 font-medium shadow-sm transition-all hover:shadow-md">Cerrar</button>
+          <p className="text-xs text-gray-500">Esta contraseña sólo se muestra una vez desde esta vista.</p>
+          <Button onClick={() => setModalPassword(null)}>Cerrar</Button>
         </div>
       </Modal>
     </div>

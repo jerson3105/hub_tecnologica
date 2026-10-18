@@ -2,6 +2,11 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
 import { ArrowLeft, Star, MessageSquare, TrendingUp, Users, AlertCircle } from 'lucide-react';
+import { formatFecha } from '../utils/fechas';
+import { tipoSesion } from '../constants/sesiones';
+import Badge from '../components/ui/Badge';
+import EmptyState from '../components/ui/EmptyState';
+import { clasesBoton, clasesIconButton } from '../components/ui/estilos';
 
 const SesionNps = () => {
   const { id } = useParams();
@@ -12,14 +17,22 @@ const SesionNps = () => {
   });
 
   if (cargando) {
-    return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div></div>;
+    return <div className="flex items-center justify-center h-64" role="status" aria-label="Cargando"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-cyan"></div></div>;
   }
 
   if (!datos?.sesion) {
-    return <div className="text-center py-12 text-gray-500">Sesión no encontrada</div>;
+    return (
+      <EmptyState
+        icono={AlertCircle}
+        tono="neutral"
+        titulo="Sesión no encontrada"
+        accion={<Link to="/sesiones" className={clasesBoton({ variante: 'secondary' })}>Volver a Sesiones</Link>}
+      />
+    );
   }
 
   const { sesion, respuestas, promedio, total } = datos;
+  const tipo = tipoSesion(sesion.tipo);
 
   // NPS breakdown
   let promotores = 0, pasivos = 0, detractores = 0;
@@ -31,9 +44,15 @@ const SesionNps = () => {
   const npsScore = total > 0 ? Math.round(((promotores - detractores) / total) * 100) : 0;
 
   const getColorPuntuacion = (p) => {
-    if (p >= 9) return 'text-green-600 bg-green-50 border-green-200';
-    if (p >= 7) return 'text-amber-600 bg-amber-50 border-amber-200';
-    return 'text-red-600 bg-red-50 border-red-200';
+    if (p >= 9) return 'text-green-700 bg-green-50 border-green-200';
+    if (p >= 7) return 'text-amber-700 bg-amber-50 border-amber-200';
+    return 'text-red-700 bg-red-50 border-red-200';
+  };
+
+  const getTono = (p) => {
+    if (p >= 9) return 'green';
+    if (p >= 7) return 'amber';
+    return 'red';
   };
 
   const getLabel = (p) => {
@@ -45,61 +64,61 @@ const SesionNps = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link to="/sesiones" className="text-gray-400 hover:text-gray-600"><ArrowLeft size={24} /></Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">Evaluaciones NPS</h1>
-          <p className="text-gray-500 mt-1">{sesion.titulo} • {sesion.programa?.nombre} • {new Date(sesion.fecha).toLocaleDateString('es-ES')}</p>
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+        <Link to="/sesiones" aria-label="Volver a Sesiones" title="Volver a Sesiones" className={clasesIconButton({ tono: 'neutral', className: '-ml-2' })}>
+          <ArrowLeft size={24} aria-hidden="true" />
+        </Link>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl font-bold text-brand-dark">Evaluaciones NPS</h1>
+          <p className="text-gray-500 mt-1">{sesion.titulo} • {sesion.programa?.nombre} • {formatFecha(sesion.fecha)}</p>
         </div>
-        <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-          sesion.tipo === 'taller' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-        }`}>{sesion.tipo === 'taller' ? 'Taller' : 'Seguimiento'}</span>
+        <Badge tono={tipo.tono} className="whitespace-nowrap">{tipo.label}</Badge>
       </div>
 
       {/* Stats cards */}
       {total > 0 ? (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
               <div className="flex items-center justify-center gap-1 mb-1">
-                <Star size={24} className="text-amber-400" fill="currentColor" />
-                <span className="text-3xl font-bold text-gray-900">{promedio}</span>
+                <Star size={24} className="text-amber-400" fill="currentColor" aria-hidden="true" />
+                <span className="text-3xl font-bold text-brand-dark">{promedio}</span>
               </div>
               <p className="text-xs text-gray-500">Promedio / 10</p>
             </div>
             <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
               <div className="flex items-center justify-center gap-1 mb-1">
-                <TrendingUp size={24} className={npsScore >= 0 ? 'text-green-500' : 'text-red-500'} />
-                <span className="text-3xl font-bold text-gray-900">{npsScore}</span>
+                <TrendingUp size={24} className={npsScore >= 0 ? 'text-green-600' : 'text-red-600'} aria-hidden="true" />
+                <span className="text-3xl font-bold text-brand-dark">{npsScore}</span>
               </div>
               <p className="text-xs text-gray-500">NPS Score</p>
             </div>
             <div className="bg-white rounded-xl border border-gray-200 p-5 text-center">
-              <Users size={24} className="mx-auto text-indigo-500 mb-1" />
-              <span className="text-3xl font-bold text-gray-900">{total}</span>
+              <Users size={24} className="mx-auto text-brand-cyan-ink mb-1" aria-hidden="true" />
+              <span className="text-3xl font-bold text-brand-dark">{total}</span>
               <p className="text-xs text-gray-500">Respuestas</p>
             </div>
             <div className="bg-white rounded-xl border border-gray-200 p-5">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-green-600">Promotores (9-10)</span>
-                  <span className="text-xs font-bold text-green-600">{promotores}</span>
+                  <span className="text-xs font-medium text-green-700">Promotores (9-10)</span>
+                  <span className="text-xs font-bold text-green-700">{promotores}</span>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-1.5">
+                <div className="w-full bg-gray-100 rounded-full h-1.5" aria-hidden="true">
                   <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${total > 0 ? (promotores / total) * 100 : 0}%` }}></div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-amber-600">Pasivos (7-8)</span>
-                  <span className="text-xs font-bold text-amber-600">{pasivos}</span>
+                  <span className="text-xs font-medium text-amber-700">Pasivos (7-8)</span>
+                  <span className="text-xs font-bold text-amber-700">{pasivos}</span>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-1.5">
+                <div className="w-full bg-gray-100 rounded-full h-1.5" aria-hidden="true">
                   <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: `${total > 0 ? (pasivos / total) * 100 : 0}%` }}></div>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-red-600">Detractores (0-6)</span>
-                  <span className="text-xs font-bold text-red-600">{detractores}</span>
+                  <span className="text-xs font-medium text-red-700">Detractores (0-6)</span>
+                  <span className="text-xs font-bold text-red-700">{detractores}</span>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-1.5">
+                <div className="w-full bg-gray-100 rounded-full h-1.5" aria-hidden="true">
                   <div className="bg-red-500 h-1.5 rounded-full" style={{ width: `${total > 0 ? (detractores / total) * 100 : 0}%` }}></div>
                 </div>
               </div>
@@ -107,59 +126,59 @@ const SesionNps = () => {
           </div>
 
           {/* Individual responses */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <MessageSquare size={20} className="text-indigo-600" /> Respuestas Individuales ({total})
+          <section aria-labelledby="titulo-respuestas" className="bg-white rounded-xl border border-gray-200 p-5">
+            <h2 id="titulo-respuestas" className="text-lg font-semibold text-brand-dark mb-4 flex items-center gap-2">
+              <MessageSquare size={20} className="text-brand-cyan-ink" aria-hidden="true" /> Respuestas Individuales ({total})
             </h2>
-            <div className="space-y-4">
+            <ul className="space-y-4">
               {respuestas.map((nps) => (
-                <div key={nps.id} className="p-4 border border-gray-100 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-semibold text-sm">
+                <li key={nps.id} className="p-4 border border-gray-100 rounded-lg">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 bg-brand-cyan/15 rounded-full flex items-center justify-center text-brand-cyan-ink font-semibold text-sm shrink-0" aria-hidden="true">
                         {nps.usuario?.nombre?.[0]}{nps.usuario?.apellido?.[0]}
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900 text-sm">{nps.usuario?.nombre} {nps.usuario?.apellido}</p>
-                        <p className="text-xs text-gray-400">{new Date(nps.created_at || nps.createdAt).toLocaleDateString('es-ES')}</p>
+                      <div className="min-w-0">
+                        <p className="font-medium text-brand-dark text-sm">{nps.usuario?.nombre} {nps.usuario?.apellido}</p>
+                        <p className="text-xs text-gray-500">{formatFecha(nps.created_at || nps.createdAt)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className={`px-2.5 py-1 rounded-lg border text-sm font-bold ${getColorPuntuacion(nps.puntuacion)}`}>
                         {nps.puntuacion}/10
                       </div>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${getColorPuntuacion(nps.puntuacion)}`}>
-                        {getLabel(nps.puntuacion)}
-                      </span>
+                      <Badge tono={getTono(nps.puntuacion)}>{getLabel(nps.puntuacion)}</Badge>
                     </div>
                   </div>
-                  <div className="flex gap-1 mb-3">
+                  {/* Representación visual de la puntuación (ya se lee como "n/10") */}
+                  <div className="flex gap-1 mb-3" aria-hidden="true">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
                       <Star key={n} size={14} className={n <= nps.puntuacion ? 'text-amber-400' : 'text-gray-200'} fill={n <= nps.puntuacion ? 'currentColor' : 'none'} />
                     ))}
                   </div>
                   {nps.comentario && (
                     <div className="mb-2">
-                      <p className="text-xs font-medium text-gray-400 uppercase mb-1">Comentario</p>
+                      <p className="text-xs font-medium text-gray-500 uppercase mb-1">Comentario</p>
                       <p className="text-sm text-gray-700">{nps.comentario}</p>
                     </div>
                   )}
                   {nps.areas_mejora && (
                     <div>
-                      <p className="text-xs font-medium text-gray-400 uppercase mb-1">Áreas de Mejora</p>
+                      <p className="text-xs font-medium text-gray-500 uppercase mb-1">Áreas de Mejora</p>
                       <p className="text-sm text-gray-700">{nps.areas_mejora}</p>
                     </div>
                   )}
-                </div>
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          </section>
         </>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <AlertCircle size={48} className="mx-auto text-gray-300 mb-3" />
-          <p className="text-gray-500">Aún no hay evaluaciones para esta sesión</p>
-        </div>
+        <EmptyState
+          icono={AlertCircle}
+          tono="neutral"
+          titulo="Aún no hay evaluaciones para esta sesión"
+        />
       )}
     </div>
   );
