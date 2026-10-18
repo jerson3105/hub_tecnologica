@@ -72,6 +72,25 @@ export const useSesiones = (params = {}) =>
     queryFn: () => api.get('/sesiones', { params }).then(r => r.data.sesiones)
   });
 
+// Sesiones con su estado (registros, asistencia y NPS para el equipo; evaluación para el
+// emprendedor). Clave bajo 'sesiones' para que invalidate('sesiones') también la refresque.
+export const useSesionesResumen = () =>
+  useQuery({
+    queryKey: ['sesiones', 'resumen'],
+    queryFn: () => api.get('/sesiones/resumen').then(r => r.data),
+    staleTime: 0
+  });
+
+// Pantalla «Registrar ronda»: sesión, próxima sesión y estado de cada emprendimiento
+export const useRegistroSesion = (id) =>
+  useQuery({
+    queryKey: ['sesion', id, 'registro'],
+    queryFn: () => api.get(`/sesiones/${id}/registro`).then(r => r.data),
+    enabled: !!id,
+    staleTime: 0,
+    refetchOnWindowFocus: false
+  });
+
 export const useSesion = (id) =>
   useQuery({
     queryKey: ['sesion', id],

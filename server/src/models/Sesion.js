@@ -28,6 +28,27 @@ const Sesion = sequelize.define('Sesion', {
     type: DataTypes.DATEONLY,
     allowNull: false
   },
+  // Horario y modalidad (migración 202610180001). Opcionales: las sesiones antiguas solo tienen fecha.
+  hora_inicio: {
+    type: DataTypes.TIME,
+    allowNull: true
+  },
+  hora_fin: {
+    type: DataTypes.TIME,
+    allowNull: true
+  },
+  modalidad: {
+    type: DataTypes.ENUM('presencial', 'virtual', 'hibrida'),
+    allowNull: true
+  },
+  lugar: {
+    type: DataTypes.STRING(200),
+    allowNull: true
+  },
+  enlace_reunion: {
+    type: DataTypes.STRING(500),
+    allowNull: true
+  },
   tipo: {
     type: DataTypes.ENUM('seguimiento', 'taller', 'diagnostica_1', 'diagnostica_2', 'diagnostica_final', 'uno_a_uno_programa', 'uno_a_uno_taller'),
     allowNull: false,

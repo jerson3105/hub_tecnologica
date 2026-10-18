@@ -1,4 +1,4 @@
-import { FileSearch, Presentation, UserCheck, BookOpen, ClipboardList } from 'lucide-react';
+import { FileSearch, Presentation, UserCheck, BookOpen, ClipboardList, MapPin, Video, MonitorSmartphone } from 'lucide-react';
 
 // Etiqueta, tono de Badge e icono de cada tipo de sesión, compartidos por todas las páginas
 export const TIPOS_SESION = {
@@ -12,3 +12,15 @@ export const TIPOS_SESION = {
 };
 
 export const tipoSesion = (tipo) => TIPOS_SESION[tipo] || TIPOS_SESION.seguimiento;
+
+// Tipos que se ofrecen al crear una sesión («Seguimiento» es heredado: solo se muestra en las antiguas)
+export const TIPOS_CREABLES = ['uno_a_uno_programa', 'uno_a_uno_taller', 'taller', 'diagnostica_1', 'diagnostica_2', 'diagnostica_final'];
+
+// Sesiones con un registro por emprendimiento (los talleres son grupales). Igual que en el servidor.
+export const TIPOS_CON_REGISTRO = ['seguimiento', 'uno_a_uno_programa', 'uno_a_uno_taller', 'diagnostica_1', 'diagnostica_2', 'diagnostica_final'];
+
+export const MODALIDADES = {
+  presencial: { label: 'Presencial', icono: MapPin },
+  virtual: { label: 'Virtual', icono: Video },
+  hibrida: { label: 'Híbrida', icono: MonitorSmartphone }
+};

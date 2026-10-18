@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { CalendarDays, ChevronRight } from 'lucide-react';
 import { tipoSesion } from '../../constants/sesiones';
 import { parseFecha } from '../../utils/fechas';
-import { enlaceSeguimiento, formatoDecimal } from '../../utils/inicio';
+import { formatoDecimal } from '../../utils/inicio';
 import { mesCorto } from '../../utils/programas';
 import { TARJETA_CLS, TITULO_BLOQUE_CLS, CHIP_CLS, FONDO_TONO, TONO_TIPO_SESION, ACCION_CLS } from '../ui/estilosSemanticos';
 
@@ -17,7 +17,7 @@ const Fecha = ({ fecha, resaltada }) => (
 );
 
 // Una sesión con lo que falta hacer en ella: registrar lo trabajado o tomar asistencia
-const FilaSesion = ({ sesion, programaId }) => {
+const FilaSesion = ({ sesion }) => {
   const pasada = sesion.momento === 'pasada';
   const pendientes = sesion.registros ? sesion.registros.total - sesion.registros.registrados : 0;
   const meta = [
@@ -51,12 +51,12 @@ const FilaSesion = ({ sesion, programaId }) => {
       </span>
       <span className="col-start-2 flex flex-wrap gap-1 sm:col-start-3 sm:justify-end">
         {pasada && pendientes > 0 && (
-          <Link to={enlaceSeguimiento({ programaId, tipo: sesion.tipo })} className={ACCION_CLS} aria-label={`Registrar ${sesion.titulo}`}>
+          <Link to={`/sesiones/${sesion.id}/registro`} className={ACCION_CLS} aria-label={`Registrar ${sesion.titulo}`}>
             Registrar<ChevronRight size={14} aria-hidden="true" />
           </Link>
         )}
         {pasada && sesion.asistencia === null && (
-          <Link to={`/asistencias?sesion=${sesion.id}`} className={ACCION_CLS} aria-label={`Tomar asistencia de ${sesion.titulo}`}>
+          <Link to={`/sesiones/${sesion.id}?tab=asistencia`} className={ACCION_CLS} aria-label={`Tomar asistencia de ${sesion.titulo}`}>
             Tomar asistencia<ChevronRight size={14} aria-hidden="true" />
           </Link>
         )}
@@ -65,7 +65,7 @@ const FilaSesion = ({ sesion, programaId }) => {
   );
 };
 
-const Grupo = ({ id, titulo, sesiones, programaId, vacio }) => (
+const Grupo = ({ id, titulo, sesiones, vacio }) => (
   <section aria-labelledby={id} className={TARJETA_CLS}>
     <div className="flex items-baseline justify-between gap-2 px-5 pb-2 pt-4">
       <h2 id={id} className={TITULO_BLOQUE_CLS}>{titulo}</h2>
@@ -75,14 +75,14 @@ const Grupo = ({ id, titulo, sesiones, programaId, vacio }) => (
       <p className="border-t border-border px-5 py-5 text-sm text-muted-foreground">{vacio}</p>
     ) : (
       <ul className="px-2 pb-2">
-        {sesiones.map((s) => <FilaSesion key={s.id} sesion={s} programaId={programaId} />)}
+        {sesiones.map((s) => <FilaSesion key={s.id} sesion={s} />)}
       </ul>
     )}
   </section>
 );
 
 // Sesiones del programa: las próximas en orden y las realizadas de la más reciente a la más antigua
-const SesionesPrograma = ({ sesiones, programaId, nuevaSesion }) => {
+const SesionesPrograma = ({ sesiones, nuevaSesion }) => {
   if (sesiones.length === 0) {
     return (
       <div className={`${TARJETA_CLS} grid justify-items-center gap-3 px-5 py-10 text-center`}>
@@ -98,8 +98,8 @@ const SesionesPrograma = ({ sesiones, programaId, nuevaSesion }) => {
   const realizadas = sesiones.filter((s) => s.momento === 'pasada').reverse();
   return (
     <div className="grid gap-4 lg:gap-6">
-      <Grupo id="t-proximas" titulo="Próximas" sesiones={proximas} programaId={programaId} vacio="No hay sesiones programadas." />
-      <Grupo id="t-realizadas" titulo="Realizadas" sesiones={realizadas} programaId={programaId} vacio="Aún no se ha realizado ninguna sesión." />
+      <Grupo id="t-proximas" titulo="Próximas" sesiones={proximas} vacio="No hay sesiones programadas." />
+      <Grupo id="t-realizadas" titulo="Realizadas" sesiones={realizadas} vacio="Aún no se ha realizado ninguna sesión." />
     </div>
   );
 };

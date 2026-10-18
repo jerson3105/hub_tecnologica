@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -23,7 +23,7 @@ const MiEmprendimiento = lazy(() => import('./pages/MiEmprendimiento'));
 const MisArchivos = lazy(() => import('./pages/MisArchivos'));
 const OnePager = lazy(() => import('./pages/OnePager'));
 const Bmc = lazy(() => import('./pages/Bmc'));
-const SesionNps = lazy(() => import('./pages/SesionNps'));
+const RegistroRonda = lazy(() => import('./pages/RegistroRonda'));
 const Reportes = lazy(() => import('./pages/Reportes'));
 const Mentores = lazy(() => import('./pages/Mentores'));
 const MisMentores = lazy(() => import('./pages/MisMentores'));
@@ -36,6 +36,12 @@ const Cargando = ({ pantallaCompleta = false }) => (
     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-cyan"></div>
   </div>
 );
+
+// /sesiones/:id/nps (enlaces guardados) → pestaña Evaluación de la sesión
+const RedirigirEvaluacion = () => {
+  const { id } = useParams();
+  return <Navigate to={`/sesiones/${id}?tab=evaluacion`} replace />;
+};
 
 const RedirectByRole = () => {
   const { usuario, cargando } = useAuth();
@@ -72,7 +78,9 @@ function App() {
             <Route path="/emprendimientos/:id" element={<EmprendimientoDetalle />} />
             <Route path="/sesiones" element={<Sesiones />} />
             <Route path="/sesiones/:id" element={<SesionDetalle />} />
-            <Route path="/sesiones/:id/nps" element={<ProtectedRoute adminOnly><SesionNps /></ProtectedRoute>} />
+            {/* La evaluación vive ahora en la pestaña de la sesión; la ruta antigua redirige */}
+            <Route path="/sesiones/:id/nps" element={<RedirigirEvaluacion />} />
+            <Route path="/sesiones/:id/registro" element={<ProtectedRoute adminOnly><RegistroRonda /></ProtectedRoute>} />
             <Route path="/perfil" element={<Perfil />} />
 
             {/* Emprendedor */}

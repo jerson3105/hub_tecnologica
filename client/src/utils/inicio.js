@@ -48,25 +48,6 @@ export const diasDeLaSemana = (fechas = []) => {
   return mayuscula(texto);
 };
 
-// Pestaña de Seguimiento donde se registra cada tipo de sesión
-const PESTANA_POR_TIPO = {
-  diagnostica_1: 'diagnosticos',
-  diagnostica_2: 'diagnosticos',
-  diagnostica_final: 'diagnosticos',
-  taller: 'talleres',
-  uno_a_uno_programa: '1a1_programa',
-  seguimiento: '1a1_programa',
-  uno_a_uno_taller: '1a1_taller'
-};
-
-export const enlaceSeguimiento = ({ programaId, emprendimientoId, tipo }) => {
-  const params = new URLSearchParams();
-  if (programaId) params.set('programa', programaId);
-  if (emprendimientoId) params.set('emp', emprendimientoId);
-  params.set('tab', PESTANA_POR_TIPO[tipo] || 'timeline');
-  return `/seguimientos?${params}`;
-};
-
 const listaNombres = (emprendimientos, total) => {
   const nombres = emprendimientos.map((e) => e.nombre).join(', ');
   return total > emprendimientos.length ? `${nombres} y ${total - emprendimientos.length} más` : nombres;
@@ -82,7 +63,7 @@ export const asuntoDe = (item) => {
         titulo: `${plural(item.total, 'registro', 'registros')} sin completar`,
         detalle: [item.sesion?.titulo, haceDias(item.dias)].filter(Boolean).join(' · '),
         accion: 'Registrar',
-        to: enlaceSeguimiento({ ...item.enlace, tipo: item.sesion?.tipo })
+        to: `/sesiones/${item.sesion?.id}/registro?emp=${item.enlace?.emprendimientoId}`
       };
     case 'asistencia':
       return {
@@ -91,7 +72,7 @@ export const asuntoDe = (item) => {
         titulo: item.total === 1 ? 'Asistencia sin tomar' : `${item.total} sesiones sin asistencia`,
         detalle: [item.sesion?.titulo, haceDias(item.dias)].filter(Boolean).join(' · '),
         accion: 'Tomar',
-        to: `/asistencias?sesion=${item.sesion?.id}`
+        to: `/sesiones/${item.sesion?.id}?tab=asistencia`
       };
     case 'bmc':
       return {
@@ -109,7 +90,7 @@ export const asuntoDe = (item) => {
         titulo: `${plural(item.total, 'evaluación', 'evaluaciones')} de detractor con comentario`,
         detalle: item.sesion?.titulo || 'Evaluación del programa',
         accion: 'Ver',
-        to: item.sesion ? `/sesiones/${item.sesion.id}/nps` : '/reportes'
+        to: item.sesion ? `/sesiones/${item.sesion.id}?tab=evaluacion` : '/reportes'
       };
     case 'vencidos':
       return {

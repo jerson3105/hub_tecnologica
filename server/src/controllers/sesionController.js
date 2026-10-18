@@ -14,6 +14,12 @@ const prepararSeguimientos = async (sesionId) => {
   }
 };
 
+const CAMPOS_HORARIO = ['hora_inicio', 'hora_fin', 'modalidad', 'lugar', 'enlace_reunion'];
+// Campos de horario que vienen en el cuerpo; una cadena vacía guarda null (quitar el dato)
+const horarioDe = (body) => Object.fromEntries(
+  CAMPOS_HORARIO.filter((c) => body[c] !== undefined).map((c) => [c, body[c] === '' ? null : body[c]])
+);
+
 const crear = async (req, res) => {
   try {
     const { programa_ids, titulo, descripcion, fecha, tipo, enlace_grabacion } = req.body;
@@ -34,7 +40,8 @@ const crear = async (req, res) => {
       descripcion,
       fecha,
       tipo,
-      enlace_grabacion
+      enlace_grabacion: enlace_grabacion || null,
+      ...horarioDe(req.body)
     });
 
     await SesionPrograma.bulkCreate(ids.map(pid => ({ sesion_id: sesion.id, programa_id: pid })));
@@ -210,7 +217,8 @@ const actualizar = async (req, res) => {
       descripcion: descripcion !== undefined ? descripcion : sesion.descripcion,
       fecha: fecha || sesion.fecha,
       tipo: tipo || sesion.tipo,
-      enlace_grabacion: enlace_grabacion !== undefined ? enlace_grabacion : sesion.enlace_grabacion
+      enlace_grabacion: enlace_grabacion !== undefined ? (enlace_grabacion || null) : sesion.enlace_grabacion,
+      ...horarioDe(req.body)
     });
 
     res.json({ mensaje: 'Sesión actualizada', sesion });

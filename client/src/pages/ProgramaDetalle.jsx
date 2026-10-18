@@ -184,7 +184,7 @@ const ProgramaDetalle = () => {
           {tab === 'emprendimientos' && (
             <TablaCartera cartera={cartera} titulo="Cartera del programa" vacio="Este programa aún no tiene emprendimientos activos." />
           )}
-          {tab === 'sesiones' && <SesionesPrograma sesiones={sesiones} programaId={programa.id} nuevaSesion={nuevaSesion} />}
+          {tab === 'sesiones' && <SesionesPrograma sesiones={sesiones} nuevaSesion={nuevaSesion} />}
           {tab === 'indicadores' && <PulsoInicio pulso={pulso} titulo="Indicadores del programa" periodo="en este programa" />}
         </div>
       </div>
