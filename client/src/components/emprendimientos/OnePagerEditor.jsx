@@ -149,7 +149,7 @@ const OnePagerEditor = ({ emprendimiento, onSalir, onPendientes }) => {
         </div>
         <div className="flex flex-wrap gap-2">
           {data?.completo && !hayCambios && (
-            <Button variante="secondary" tamanio="sm" icono={Download} cargando={generando('onepager', emprendimiento.id)} onClick={() => descargar('onepager', emprendimiento.id)}>
+            <Button variante="secondary" icono={Download} cargando={generando('onepager', emprendimiento.id)} onClick={() => descargar('onepager', emprendimiento.id)}>
               Descargar PDF
             </Button>
           )}

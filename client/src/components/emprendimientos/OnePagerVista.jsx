@@ -68,7 +68,7 @@ const OnePagerVista = ({ emprendimiento, accion = null }) => {
         </div>
         <div className="flex flex-wrap gap-2">
           {completo && (
-            <Button variante="secondary" tamanio="sm" icono={Download} cargando={generando('onepager', emprendimiento.id)} onClick={() => descargar('onepager', emprendimiento.id)}>Descargar PDF</Button>
+            <Button variante="secondary" icono={Download} cargando={generando('onepager', emprendimiento.id)} onClick={() => descargar('onepager', emprendimiento.id)}>Descargar PDF</Button>
           )}
           {accion}
         </div>

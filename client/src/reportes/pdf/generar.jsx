@@ -5,6 +5,7 @@ import FichaEmprendimiento from './FichaEmprendimiento';
 import InformeImpacto from './InformeImpacto';
 import InformeSatisfaccion from './InformeSatisfaccion';
 import OnePagerPdf from './OnePagerPdf';
+import ManualPdf from './ManualPdf';
 
 // Módulo que se carga solo al pedir un PDF (react-pdf y las fuentes pesan): arma el documento
 // del tipo pedido y devuelve el Blob.
@@ -13,7 +14,8 @@ const DOCUMENTOS = {
   emprendimiento: FichaEmprendimiento,
   impacto: InformeImpacto,
   satisfaccion: InformeSatisfaccion,
-  onepager: OnePagerPdf
+  onepager: OnePagerPdf,
+  manual: ManualPdf
 };
 
 // Logo del propio proyecto: react-pdf necesita la imagen ya cargada

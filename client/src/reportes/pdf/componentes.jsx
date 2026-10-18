@@ -17,8 +17,9 @@ const TONOS = {
 
 const s = StyleSheet.create({
   pagina: { paddingTop: 58, paddingBottom: 54, paddingHorizontal: 40, fontFamily: 'Geist', fontSize: 9, color: C.tinta, lineHeight: 1.45, backgroundColor: C.blanco },
-  encabezado: { position: 'absolute', top: 22, left: 40, right: 40 },
-  encabezadoCaja: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 7, borderBottomWidth: 0.6, borderBottomColor: C.borde },
+  encabezadoCaja: { position: 'absolute', top: 22, left: 40, right: 40, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 7, borderBottomWidth: 0.6, borderBottomColor: C.borde },
+  // Recuadro blanco que tapa la cabecera en la portada (desde el borde superior de la página)
+  tapaCabecera: { position: 'absolute', top: -58, left: -40, right: -40, height: 54, backgroundColor: C.blanco },
   encabezadoTexto: { fontSize: 7.5, color: C.suave },
   // Con `top` y no `bottom`: con `bottom` react-pdf no pinta el pie cuando el contenido ocupa varias páginas.
   // A4 mide 841,89 pt de alto: el pie queda a ~22 pt del borde inferior.
@@ -66,17 +67,13 @@ const Marca = ({ logo, alto }) => (logo
 export const Informe = ({ titulo, alcance, children }) => (
   <Document title={`${titulo}${alcance ? ` · ${alcance}` : ''}`} author="HUB TecnológICA" creator="HUB TecnológICA" producer="HUB TecnológICA" language="es">
     <Page size="A4" style={s.pagina}>
-      <View
-        fixed
-        style={s.encabezado}
-        render={({ pageNumber }) => (pageNumber > 1 ? (
-          <View style={s.encabezadoCaja}>
-            {/* Texto y no imagen: las imágenes dentro de render no se dibujan */}
-            <Marca logo={null} alto={11} />
-            <Text style={s.encabezadoTexto}>{titulo}{alcance ? ` · ${alcance}` : ''}</Text>
-          </View>
-        ) : null)}
-      />
+      {/* Cabecera estática en todas las páginas; en la primera la tapa la portada (tapaCabecera).
+          Con `render` (para no dibujarla en la página 1) react-pdf fallaba desde la página 10
+          («unsupported number»). Texto y no imagen: las imágenes en elementos fijos dan problemas. */}
+      <View fixed style={s.encabezadoCaja}>
+        <Marca logo={null} alto={11} />
+        <Text style={s.encabezadoTexto}>{titulo}{alcance ? ` · ${alcance}` : ''}</Text>
+      </View>
       {children}
       <View fixed style={s.pie}>
         <Text>HUB TecnológICA · {titulo}</Text>
@@ -112,6 +109,7 @@ export const Portada = ({ logo, eyebrow, titulo, subtitulo, meta = [], imagen = 
   );
   return (
     <View>
+      <View style={s.tapaCabecera} />
       <View style={{ marginBottom: 18 }}><Marca logo={logo} alto={30} /></View>
       {imagen ? (
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
