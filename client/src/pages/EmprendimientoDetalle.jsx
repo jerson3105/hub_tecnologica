@@ -1,25 +1,26 @@
 import { useState } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { ChevronRight, Pencil, ClipboardList, CalendarClock, Download, FileUp, Rocket } from 'lucide-react';
+import { ChevronRight, Pencil, ClipboardList, Download, FileUp, Rocket, Target } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useEmprendimiento, useEmprendimientoResumen, useInvalidate } from '../hooks/useQueryHooks';
 import { descargarArchivo } from '../services/api';
 import { formatFecha, esFutura } from '../utils/fechas';
 import { haceDias } from '../utils/inicio';
-import { cuandoEs } from '../utils/programas';
-import { tipoSesion } from '../constants/sesiones';
 import { CATEGORIAS_ARCHIVO, estadoDe } from '../constants/estados';
 import TarjetaKpi from '../components/inicio/TarjetaKpi';
 import LineaSeguimiento from '../components/emprendimientos/LineaSeguimiento';
 import EquipoEmprendimiento from '../components/emprendimientos/EquipoEmprendimiento';
 import OnePagerVista from '../components/emprendimientos/OnePagerVista';
 import BmcVista from '../components/emprendimientos/BmcVista';
+import ProximaSesion from '../components/emprendimientos/ProximaSesion';
+import CompromisosAbiertos from '../components/seguimiento/CompromisosAbiertos';
+import ObjetivosOkr from '../components/seguimiento/ObjetivosOkr';
 import EmprendimientoFormModal from '../components/emprendimientos/EmprendimientoFormModal';
 import Pestanas from '../components/ui/Pestanas';
 import Skeleton from '../components/ui/Skeleton';
 import Button from '../components/ui/Button';
 import {
-  TARJETA_CLS, TITULO_BLOQUE_CLS, CHIP_CLS, FONDO_TONO, TONO_TIPO_SESION, BOTON_PRIMARIO_CLS, BOTON_SECUNDARIO_CLS
+  TARJETA_CLS, TITULO_BLOQUE_CLS, CHIP_CLS, FONDO_TONO, BOTON_PRIMARIO_CLS, BOTON_SECUNDARIO_CLS
 } from '../components/ui/estilosSemanticos';
 
 const ESTADOS = {
@@ -70,26 +71,6 @@ const Esqueleto = () => (
   </div>
 );
 
-const ProximaSesion = ({ sesion, hoy }) => (
-  <section aria-labelledby="t-proxima" className={`${TARJETA_CLS} grid gap-2 p-5`}>
-    <h2 id="t-proxima" className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-      <CalendarClock size={16} aria-hidden="true" />Próxima sesión
-    </h2>
-    {sesion ? (
-      <>
-        <span className={`${CHIP_CLS} w-fit ${FONDO_TONO[TONO_TIPO_SESION[sesion.tipo] || 'neutral']}`}>{tipoSesion(sesion.tipo).label}</span>
-        <Link to={`/sesiones/${sesion.id}`} className="font-semibold leading-snug hover:text-link hover:underline">{sesion.titulo}</Link>
-        <span className="block text-[13px] text-muted-foreground first-letter:uppercase">
-          {['Hoy', 'Mañana'].includes(cuandoEs(sesion.fecha, hoy)) && `${cuandoEs(sesion.fecha, hoy)} · `}
-          {formatFecha(sesion.fecha, { weekday: 'long', day: 'numeric', month: 'long' })}
-        </span>
-      </>
-    ) : (
-      <p className="text-sm text-muted-foreground">No hay sesiones programadas en su programa.</p>
-    )}
-  </section>
-);
-
 const Materiales = ({ archivos = [] }) => (
   <section aria-labelledby="t-materiales" className={TARJETA_CLS}>
     <div className="px-5 py-4">
@@ -128,7 +109,7 @@ const EmprendimientoDetalle = () => {
   const [editando, setEditando] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const pestanasDisponibles = ['resumen', 'seguimiento', 'onepager', ...(esAdmin ? ['bmc'] : []), 'materiales', 'equipo'];
+  const pestanasDisponibles = ['resumen', 'seguimiento', 'objetivos', 'onepager', ...(esAdmin ? ['bmc'] : []), 'materiales', 'equipo'];
   const tab = pestanasDisponibles.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'resumen';
   const cambiarTab = (nueva) => setSearchParams(nueva === 'resumen' ? {} : { tab: nueva }, { replace: true });
   const refrescar = () => invalidate('emprendimiento', 'emprendimientos', 'programa', 'programas', 'inicio');
@@ -153,7 +134,8 @@ const EmprendimientoDetalle = () => {
   const realizadas = seguimientos.filter((s) => !esFutura(s.sesion?.fecha));
   const lider = emp.integrantes?.find((i) => i.es_lider)?.usuario;
   const ultimosRegistros = realizadas.filter((s) => tieneTexto(s.realizado));
-  const enlaceRegistro = `/seguimientos?programa=${emp.programa?.id || ''}&emp=${emp.id}`;
+  const enlaceSeguimiento = `/seguimientos?emp=${emp.id}`;
+  const enlaceRegistro = (seg) => `/sesiones/${seg.sesion.id}/registro?emp=${emp.id}`;
 
   const meta = [
     emp.programa && (esAdmin
@@ -196,8 +178,8 @@ const EmprendimientoDetalle = () => {
             <button type="button" onClick={() => setEditando(true)} className={BOTON_SECUNDARIO_CLS}>
               <Pencil size={16} aria-hidden="true" />Editar
             </button>
-            <Link to={enlaceRegistro} className={BOTON_PRIMARIO_CLS}>
-              <ClipboardList size={16} aria-hidden="true" />Registrar seguimiento
+            <Link to={enlaceSeguimiento} className={BOTON_PRIMARIO_CLS}>
+              <ClipboardList size={16} aria-hidden="true" />Preparar seguimiento
             </Link>
           </div>
         )}
@@ -212,6 +194,7 @@ const EmprendimientoDetalle = () => {
           pestanas={[
             { id: 'resumen', label: 'Resumen' },
             { id: 'seguimiento', label: 'Seguimiento', contador: realizadas.length },
+            { id: 'objetivos', label: 'Objetivos' },
             { id: 'onepager', label: 'One Pager' },
             ...(esAdmin ? [{ id: 'bmc', label: 'BMC' }] : []),
             { id: 'materiales', label: 'Materiales', contador: emp.archivos?.length || 0 },
@@ -254,12 +237,17 @@ const EmprendimientoDetalle = () => {
             </div>
           )}
           {tab === 'seguimiento' && (
-            <LineaSeguimiento
-              seguimientos={seguimientos}
-              accion={esAdmin && (
-                <Link to={enlaceRegistro} className={BOTON_SECUNDARIO_CLS}>
-                  <ClipboardList size={16} aria-hidden="true" />Registrar
-                </Link>
+            <div className="grid gap-4 lg:gap-6">
+              <CompromisosAbiertos key={emp.id} emprendimientoId={emp.id} editable={esAdmin} />
+              <LineaSeguimiento seguimientos={seguimientos} enlaceRegistro={esAdmin ? enlaceRegistro : null} />
+            </div>
+          )}
+          {tab === 'objetivos' && (
+            <ObjetivosOkr
+              emprendimientoId={emp.id}
+              editable={esAdmin}
+              enlaceEdicion={!esAdmin && (
+                <Link to="/mis-objetivos" className={BOTON_SECUNDARIO_CLS}><Target size={16} aria-hidden="true" />Editar en Mis objetivos</Link>
               )}
             />
           )}

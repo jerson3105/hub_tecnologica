@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Plus, X, Check, UserCheck } from 'lucide-react';
 import { Field, Input, Textarea } from '../ui/Field';
+import OpcionesRadio from '../ui/OpcionesRadio';
 import { formatFecha } from '../../utils/fechas';
 import { claveNueva, enlaceValido, OPCIONES_REVISION } from '../../utils/ronda';
 import { estadoDe, ESTADOS_ACTIVIDAD } from '../../constants/estados';
@@ -21,46 +22,9 @@ const Seccion = ({ id, numero, titulo, ayuda, children, accion }) => (
   </section>
 );
 
-// Grupo de opciones tipo radio con botones grandes (≥ 40 px), navegable con flechas
-const Opciones = ({ etiqueta, opciones, valor, onCambiar, tono = 'info' }) => {
-  const refs = useRef([]);
-  const mover = (e, i) => {
-    const destino = { ArrowRight: (i + 1) % opciones.length, ArrowLeft: (i - 1 + opciones.length) % opciones.length }[e.key];
-    if (destino === undefined) return;
-    e.preventDefault();
-    onCambiar(opciones[destino].valor);
-    refs.current[destino]?.focus();
-  };
-  const activoCls = { info: 'bg-primary text-primary-foreground', success: 'bg-success-solid text-success-solid-foreground' };
-  return (
-    <div role="radiogroup" aria-label={etiqueta} className="flex shrink-0 gap-1 rounded-control bg-muted p-1">
-      {opciones.map((o, i) => {
-        const activo = o.valor === valor;
-        return (
-          <button
-            key={String(o.valor)}
-            ref={(el) => { refs.current[i] = el; }}
-            type="button"
-            role="radio"
-            aria-checked={activo}
-            tabIndex={activo || (valor == null && i === 0) ? 0 : -1}
-            onClick={() => onCambiar(o.valor)}
-            onKeyDown={(e) => mover(e, i)}
-            className={`min-h-9 whitespace-nowrap rounded-[calc(var(--radius-control)-4px)] px-3 text-[13px] font-semibold transition-colors ${
-              activo ? (activoCls[o.tono || tono] || activoCls.info) : 'text-muted-foreground hover:bg-card hover:text-foreground'
-            }`}
-          >
-            {o.texto}
-          </button>
-        );
-      })}
-    </div>
-  );
-};
-
 // Formulario de un emprendimiento en la ronda: revisa lo anterior, registra lo trabajado, deja
 // compromisos nuevos y toma la asistencia del equipo. Controlado: `borrador` + `onCambio(fn)`.
-const RondaFormulario = ({ emp, borrador, onCambio, proximaSesion }) => {
+const RondaFormulario = ({ emp, borrador, onCambio, proximaSesion, tipo }) => {
   const refsCompromisos = useRef({});
   // La fila nueva se enfoca tras pintarse (no con requestAnimationFrame: puede llegar tarde y
   // lo que se escribe mientras tanto se pierde)
@@ -105,7 +69,7 @@ const RondaFormulario = ({ emp, borrador, onCambio, proximaSesion }) => {
                       {!c.revisadoAqui && c.estado !== 'planeado' && ` · estaba ${estadoDe(ESTADOS_ACTIVIDAD, c.estado).label.toLowerCase()}`}
                     </p>
                   </div>
-                  <Opciones
+                  <OpcionesRadio
                     etiqueta={`Estado de «${c.descripcion}»`}
                     opciones={OPCIONES_REVISION.map((o) => ({ ...o, tono: o.valor === 'completado' ? 'success' : 'info' }))}
                     valor={valor}
@@ -125,6 +89,16 @@ const RondaFormulario = ({ emp, borrador, onCambio, proximaSesion }) => {
         <Field label="Observaciones" ayuda="Opcional. Solo las ve el equipo técnico.">
           <Textarea value={borrador.observaciones} onChange={setCampo('observaciones')} rows={2} className="resize-y" />
         </Field>
+        {tipo === 'uno_a_uno_taller' && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Comentario del tallerista">
+              <Textarea value={borrador.comentario_tallerista} onChange={setCampo('comentario_tallerista')} rows={2} className="resize-y" />
+            </Field>
+            <Field label="Comentario del emprendedor">
+              <Textarea value={borrador.comentario_emprendedor} onChange={setCampo('comentario_emprendedor')} rows={2} className="resize-y" placeholder="¿Qué dice el emprendimiento?" />
+            </Field>
+          </div>
+        )}
       </Seccion>
 
       <Seccion
@@ -179,7 +153,7 @@ const RondaFormulario = ({ emp, borrador, onCambio, proximaSesion }) => {
                   <span className="text-sm font-medium">{m.nombre} {m.apellido}</span>
                   <span className="text-xs text-muted-foreground">{[m.es_lider && 'Líder', m.rol].filter(Boolean).join(' · ') || 'Integrante'}</span>
                 </span>
-                <Opciones
+                <OpcionesRadio
                   etiqueta={`Asistencia de ${m.nombre} ${m.apellido}`}
                   opciones={[{ valor: true, texto: 'Presente', tono: 'success' }, { valor: false, texto: 'Ausente' }]}
                   valor={borrador.asistencia[m.usuario_id] ?? null}

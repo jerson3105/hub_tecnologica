@@ -71,7 +71,7 @@ const cargarRonda = async (sesionId, emprendimientoId = null) => {
   const [seguimientos, integrantes, asistencias] = await Promise.all([
     empIds.length ? Seguimiento.findAll({
       where: { emprendimiento_id: empIds },
-      attributes: ['id', 'sesion_id', 'emprendimiento_id', 'realizado', 'observaciones', 'enlace_grabacion'],
+      attributes: ['id', 'sesion_id', 'emprendimiento_id', 'realizado', 'observaciones', 'enlace_grabacion', 'comentario_tallerista', 'comentario_emprendedor'],
       include: [
         { model: Sesion, as: 'sesion', attributes: ['id', 'titulo', 'fecha'] },
         { model: Compromiso, as: 'compromisoItems', attributes: ['id', 'descripcion', 'estado', 'orden', 'seguimiento_revision_id'] }
@@ -130,7 +130,9 @@ const obtenerRegistro = async (req, res) => {
 const guardarRegistro = async (req, res) => {
   const sesionId = Number(req.params.id);
   const empId = Number(req.params.emprendimientoId);
-  const { realizado, observaciones, enlace_grabacion, compromisos, revisiones, asistencia } = req.body;
+  const {
+    realizado, observaciones, enlace_grabacion, comentario_tallerista, comentario_emprendedor, compromisos, revisiones, asistencia
+  } = req.body;
   try {
     if (enlace_grabacion && !esUrlHttp(enlace_grabacion)) {
       return res.status(400).json({ mensaje: 'El enlace de la grabación debe empezar por http:// o https://' });
@@ -162,6 +164,8 @@ const guardarRegistro = async (req, res) => {
       if (realizado !== undefined) cambios.realizado = realizado || null;
       if (observaciones !== undefined) cambios.observaciones = observaciones || null;
       if (enlace_grabacion !== undefined) cambios.enlace_grabacion = enlace_grabacion || null;
+      if (comentario_tallerista !== undefined) cambios.comentario_tallerista = comentario_tallerista || null;
+      if (comentario_emprendedor !== undefined) cambios.comentario_emprendedor = comentario_emprendedor || null;
       if (Object.keys(cambios).length) await seguimiento.update(cambios, { transaction });
 
       if (Array.isArray(compromisos)) {

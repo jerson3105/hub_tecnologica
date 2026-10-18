@@ -133,8 +133,13 @@ const actualizar = async (req, res) => {
   }
 };
 
+// Los objetivos son del emprendimiento: el equipo técnico los revisa y ajusta (avance, resultados
+// clave, actividades), pero borrarlos queda en manos de sus integrantes
 const eliminar = async (req, res) => {
   try {
+    if (req.usuario?.rol === 'admin') {
+      return denegar(res, 'Los objetivos los borra el propio emprendimiento');
+    }
     const objetivo = await cargarObjetivo(req, res, req.params.id);
     if (!objetivo) return;
 

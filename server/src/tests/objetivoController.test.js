@@ -29,6 +29,15 @@ describe('objetivoController', () => {
     jest.resetAllMocks();
   });
 
+  it('does not let the technical team delete an objective (it belongs to the emprendimiento)', async () => {
+    const res = createResponse();
+
+    await ctrl.eliminar({ params: { id: '3' }, usuario: { id: 1, rol: 'admin' } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(Objetivo.findByPk).not.toHaveBeenCalled();
+  });
+
   it('rejects reading the OKRs of an emprendimiento the user does not belong to', async () => {
     puedeAccederEmprendimiento.mockResolvedValue(false);
     const res = createResponse();

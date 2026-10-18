@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Video, ClipboardList } from 'lucide-react';
+import { Video, ClipboardList, Pencil } from 'lucide-react';
 import ListaCompromisos from '../ListaCompromisos';
 import BadgeDe from '../ui/BadgeDe';
 import { tipoSesion } from '../../constants/sesiones';
@@ -14,7 +14,7 @@ const Chip = ({ tono, children }) => <span className={`${CHIP_CLS} ${FONDO_TONO[
 
 // Un tramo de «la línea»: trazo sólido cian en lo realizado y discontinuo en lo programado.
 // El nodo es lleno si la sesión tiene registro y hueco si falta.
-const Tramo = ({ seg, programada, ultimo }) => {
+const Tramo = ({ seg, programada, ultimo, enlaceRegistro }) => {
   const registrado = conRegistro(seg);
   const tipo = seg.sesion?.tipo;
   return (
@@ -42,6 +42,15 @@ const Tramo = ({ seg, programada, ultimo }) => {
             : registrado
               ? seg.estado_avance && seg.estado_avance !== 'sin_iniciar' && <BadgeDe mapa={ESTADOS_AVANCE} valor={seg.estado_avance} forma="tag" />
               : <Chip tono="warning">Sin registro</Chip>}
+          {enlaceRegistro && !programada && seg.sesion && (
+            <Link
+              to={enlaceRegistro(seg)}
+              className="ml-auto inline-flex min-h-8 items-center gap-1.5 rounded-control px-2 text-[13px] font-semibold text-link hover:bg-info-soft"
+              aria-label={`${registrado ? 'Editar el registro de' : 'Registrar'} ${seg.sesion.titulo}`}
+            >
+              <Pencil size={13} aria-hidden="true" />{registrado ? 'Editar' : 'Registrar'}
+            </Link>
+          )}
         </div>
         {seg.sesion ? (
           <h3 className="font-semibold leading-snug">
@@ -68,7 +77,8 @@ const Tramo = ({ seg, programada, ultimo }) => {
 
 // Historial de seguimiento: las programadas arriba (en orden) y lo realizado de lo más reciente
 // a lo más antiguo. `accion` es el enlace para registrar (solo equipo técnico).
-const LineaSeguimiento = ({ seguimientos = [], accion = null, limite = null, titulo = 'Seguimiento', vacio = 'Aún no hay sesiones en su programa.' }) => {
+// `enlaceRegistro(seg)` (opcional, equipo técnico) añade «Registrar» / «Editar» en cada sesión que lleva registro.
+const LineaSeguimiento = ({ seguimientos = [], accion = null, limite = null, titulo = 'Seguimiento', vacio = 'Aún no hay sesiones en su programa.', enlaceRegistro = null }) => {
   const programadas = seguimientos.filter((s) => esFutura(s.sesion?.fecha)).reverse();
   const realizadas = seguimientos.filter((s) => !esFutura(s.sesion?.fecha));
   const visibles = limite ? realizadas.slice(0, limite) : realizadas;
@@ -96,7 +106,7 @@ const LineaSeguimiento = ({ seguimientos = [], accion = null, limite = null, tit
             {!limite && programadas.length > 0 && <h3 className="eyebrow">Realizadas</h3>}
             {visibles.length === 0
               ? <p className="text-sm text-muted-foreground">Aún no se ha realizado ninguna sesión.</p>
-              : <ol>{visibles.map((s, i) => <Tramo key={s.id ?? `r-${s.sesion?.id}`} seg={s} ultimo={i === visibles.length - 1} />)}</ol>}
+              : <ol>{visibles.map((s, i) => <Tramo key={s.id ?? `r-${s.sesion?.id}`} seg={s} ultimo={i === visibles.length - 1} enlaceRegistro={enlaceRegistro} />)}</ol>}
           </div>
         </>
       )}

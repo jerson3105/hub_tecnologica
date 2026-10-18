@@ -262,7 +262,7 @@ const SesionDetalle = () => {
             ? <AsistenciaSesion sesionId={id} emprendimientos={registro.emprendimientos} sesionFutura={momento === 'proxima'} />
             : <Skeleton className="h-64 rounded-card" />)}
           {tab === 'evaluacion' && <EvaluacionSesion sesion={sesion} esAdmin={esAdmin} sesionFutura={momento === 'proxima'} pendiente={pendienteEvaluar} />}
-          {tab === 'materiales' && <MaterialesSesion sesion={sesion} esAdmin={esAdmin} />}
+          {tab === 'materiales' && <MaterialesSesion sesion={sesion} esAdmin={esAdmin} emprendimientos={registro?.emprendimientos || []} />}
         </div>
       </div>
 

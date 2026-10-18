@@ -134,6 +134,23 @@ export const useNpsPromedios = () =>
     retry: 1
   });
 
+// ─── Compromisos y objetivos de un emprendimiento ───
+export const useCompromisosPendientes = (emprendimientoId) =>
+  useQuery({
+    queryKey: ['compromisos', 'pendientes', String(emprendimientoId)],
+    queryFn: () => api.get(`/compromisos/pendientes/${emprendimientoId}`).then(r => r.data.compromisos || []),
+    enabled: !!emprendimientoId,
+    staleTime: 0
+  });
+
+export const useObjetivos = (emprendimientoId) =>
+  useQuery({
+    queryKey: ['objetivos', String(emprendimientoId)],
+    queryFn: () => api.get(`/objetivos/emprendimiento/${emprendimientoId}`).then(r => r.data.objetivos || []),
+    enabled: !!emprendimientoId,
+    staleTime: 0
+  });
+
 // ─── Seguimientos ───
 export const useSeguimientos = (emprendimientoId) =>
   useQuery({

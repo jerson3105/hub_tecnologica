@@ -27,7 +27,7 @@ const RegistroRonda = lazy(() => import('./pages/RegistroRonda'));
 const Reportes = lazy(() => import('./pages/Reportes'));
 const Mentores = lazy(() => import('./pages/Mentores'));
 const MisMentores = lazy(() => import('./pages/MisMentores'));
-const SeguimientoV2 = lazy(() => import('./pages/SeguimientoV2'));
+const Seguimiento = lazy(() => import('./pages/Seguimiento'));
 const MisObjetivos = lazy(() => import('./pages/MisObjetivos'));
 const MiSeguimiento = lazy(() => import('./pages/MiSeguimiento'));
 
@@ -67,7 +67,7 @@ function App() {
             <Route path="/programas" element={<ProtectedRoute adminOnly><Programas /></ProtectedRoute>} />
             <Route path="/programas/:id" element={<ProtectedRoute adminOnly><ProgramaDetalle /></ProtectedRoute>} />
             <Route path="/emprendimientos" element={<ProtectedRoute adminOnly><Emprendimientos /></ProtectedRoute>} />
-            <Route path="/seguimientos" element={<ProtectedRoute adminOnly><SeguimientoV2 /></ProtectedRoute>} />
+            <Route path="/seguimientos" element={<ProtectedRoute adminOnly><Seguimiento /></ProtectedRoute>} />
             <Route path="/archivos" element={<ProtectedRoute adminOnly><Archivos /></ProtectedRoute>} />
             <Route path="/usuarios" element={<ProtectedRoute adminOnly><Usuarios /></ProtectedRoute>} />
             <Route path="/asistencias" element={<ProtectedRoute adminOnly><Asistencias /></ProtectedRoute>} />

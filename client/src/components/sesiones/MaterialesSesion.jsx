@@ -4,7 +4,7 @@ import { Link2, File, FileText, Image, Film, ExternalLink, Download, Plus } from
 import toast from 'react-hot-toast';
 import api, { descargarArchivo } from '../../services/api';
 import Button from '../ui/Button';
-import { Field, Input } from '../ui/Field';
+import { Field, Input, Select } from '../ui/Field';
 import { CATEGORIAS_ARCHIVO, estadoDe } from '../../constants/estados';
 import { formatFecha } from '../../utils/fechas';
 import { TARJETA_CLS, TITULO_BLOQUE_CLS, CHIP_CLS, FONDO_TONO, iconoBotonCls } from '../ui/estilosSemanticos';
@@ -17,11 +17,12 @@ const iconoDe = (a) => {
   return File;
 };
 
-// Materiales de la sesión. El equipo técnico puede añadir enlaces (presentaciones, Drive…).
-const MaterialesSesion = ({ sesion, esAdmin }) => {
+// Materiales de la sesión. El equipo técnico puede añadir enlaces (presentaciones, Drive…) para
+// toda la sesión o para un emprendimiento (p. ej. el informe de su diagnóstico).
+const MaterialesSesion = ({ sesion, esAdmin, emprendimientos = [] }) => {
   const queryClient = useQueryClient();
   const [abierto, setAbierto] = useState(false);
-  const [enlace, setEnlace] = useState({ nombre: '', url: '' });
+  const [enlace, setEnlace] = useState({ nombre: '', url: '', para: '' });
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState(null);
   const archivos = sesion.archivos || [];
@@ -39,10 +40,10 @@ const MaterialesSesion = ({ sesion, esAdmin }) => {
         url: enlace.url.trim(),
         categoria: sesion.tipo === 'taller' ? 'taller' : 'otro',
         sesion_id: sesion.id,
-        emprendimiento_ids: []
+        emprendimiento_ids: enlace.para ? [Number(enlace.para)] : []
       });
       toast.success('Enlace agregado');
-      setEnlace({ nombre: '', url: '' });
+      setEnlace({ nombre: '', url: '', para: '' });
       setError(null);
       setAbierto(false);
       queryClient.invalidateQueries({ queryKey: ['sesion'] });
@@ -66,13 +67,21 @@ const MaterialesSesion = ({ sesion, esAdmin }) => {
 
       {abierto && (
         <form id="form-enlace" onSubmit={agregar} className="grid gap-3 border-t border-border bg-muted/40 px-5 py-4" noValidate>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className={`grid gap-3 ${emprendimientos.length ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
             <Field label="Nombre" error={error && !enlace.nombre.trim() ? 'Escribe un nombre' : null}>
               <Input value={enlace.nombre} onChange={(e) => setEnlace({ ...enlace, nombre: e.target.value })} placeholder="Ej: Presentación del taller" />
             </Field>
             <Field label="Enlace" error={error && !/^https?:\/\/\S+$/i.test(enlace.url.trim()) ? 'Debe empezar por http:// o https://' : null}>
               <Input type="url" value={enlace.url} onChange={(e) => setEnlace({ ...enlace, url: e.target.value })} placeholder="https://" />
             </Field>
+            {emprendimientos.length > 0 && (
+              <Field label="Para">
+                <Select value={enlace.para} onChange={(e) => setEnlace({ ...enlace, para: e.target.value })}>
+                  <option value="">Toda la sesión</option>
+                  {emprendimientos.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
+                </Select>
+              </Field>
+            )}
           </div>
           <div className="flex justify-end gap-2">
             <Button variante="ghost" tamanio="sm" onClick={() => { setAbierto(false); setError(null); }}>Cancelar</Button>

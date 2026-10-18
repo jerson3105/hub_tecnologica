@@ -206,7 +206,8 @@ const RegistroRonda = () => {
 
   const { sesion, proximaSesion } = data;
   const volver = `/sesiones/${sesion.id}`;
-  const sinRegistro = !TIPOS_CON_REGISTRO.includes(sesion.tipo);
+  // En los talleres el registro por emprendimiento es opcional (no cuenta como pendiente)
+  const opcional = !TIPOS_CON_REGISTRO.includes(sesion.tipo);
   const borrador = actual ? (borradores[actual.id] ?? borradorDesde(actual)) : null;
   const porcentaje = emps.length ? Math.round((registrados / emps.length) * 100) : 0;
   const quedan = emps.length - registrados;
@@ -238,13 +239,12 @@ const RegistroRonda = () => {
         </div>
       </header>
 
-      {sinRegistro ? (
-        <div className={`${TARJETA_CLS} grid justify-items-start gap-3 p-6`}>
-          <p className="font-semibold">Los talleres no llevan registro por emprendimiento.</p>
-          <p className="text-sm text-muted-foreground">Toma la asistencia y añade los materiales desde la sesión.</p>
-          <Link to={`${volver}?tab=asistencia`} className={BOTON_PRIMARIO_CLS}>Ir a la asistencia</Link>
-        </div>
-      ) : emps.length === 0 ? (
+      {opcional && emps.length > 0 && (
+        <p className="rounded-control bg-info-soft px-4 py-2.5 text-sm text-info-soft-foreground">
+          En los talleres este registro es opcional: sirve para dejar notas, compromisos o la asistencia de un emprendimiento concreto.
+        </p>
+      )}
+      {emps.length === 0 ? (
         <div className={`${TARJETA_CLS} p-6 text-sm text-muted-foreground`}>Ningún emprendimiento activo participa en esta sesión.</div>
       ) : (
         <div className="grid items-start gap-4 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6">
@@ -296,6 +296,7 @@ const RegistroRonda = () => {
               emp={actual}
               borrador={borrador}
               proximaSesion={proximaSesion}
+              tipo={sesion.tipo}
               onCambio={(fn) => cambiar(actual, fn)}
             />
 

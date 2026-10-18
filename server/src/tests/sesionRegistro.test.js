@@ -87,6 +87,13 @@ describe('sesionResumenController guardarRegistro', () => {
     expect(res.json.mock.calls[0][0].creados).toEqual([{ clave: 'n1', id: 300 }]);
   });
 
+  it('saves the workshop comments of a 1 a 1 de taller', async () => {
+    const seguimiento = prepararGuardado();
+    const res = createResponse();
+    await guardarRegistro(peticion({ comentario_tallerista: 'Buen avance', comentario_emprendedor: '' }), res);
+    expect(seguimiento.update).toHaveBeenCalledWith({ comentario_tallerista: 'Buen avance', comentario_emprendedor: null }, { transaction: { id: 'tx' } });
+  });
+
   it('marks earlier commitments as reviewed in this session', async () => {
     prepararGuardado();
     const anterior = { id: 100, seguimiento_id: 10, update: jest.fn() };

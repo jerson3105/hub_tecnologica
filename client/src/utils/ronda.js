@@ -8,6 +8,8 @@ export const borradorDesde = (emp) => ({
   realizado: emp.seguimiento.realizado || '',
   observaciones: emp.seguimiento.observaciones || '',
   enlace_grabacion: emp.seguimiento.enlace_grabacion || '',
+  comentario_tallerista: emp.seguimiento.comentario_tallerista || '',
+  comentario_emprendedor: emp.seguimiento.comentario_emprendedor || '',
   compromisos: emp.compromisos.map((c) => ({ id: c.id, clave: `c${c.id}`, descripcion: c.descripcion })),
   // Solo los compromisos anteriores que se tocaron en esta pantalla
   revisiones: {},
@@ -19,6 +21,8 @@ export const enlaceValido = (valor) => !valor || /^https?:\/\/\S+$/i.test(valor.
 export const cuerpoDe = (b) => ({
   realizado: b.realizado,
   observaciones: b.observaciones,
+  comentario_tallerista: b.comentario_tallerista,
+  comentario_emprendedor: b.comentario_emprendedor,
   // Un enlace mal escrito no bloquea el resto del guardado: se avisa en el campo y no se envía
   ...(enlaceValido(b.enlace_grabacion) ? { enlace_grabacion: b.enlace_grabacion.trim() } : {}),
   compromisos: b.compromisos.map(({ id, clave, descripcion }) => ({ id: id || undefined, clave, descripcion })),

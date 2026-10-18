@@ -96,9 +96,15 @@ const filaDeRonda = ({ emprendimiento, sesion, seguimientos, integrantes, asiste
     nombre: emprendimiento.nombre,
     sector: emprendimiento.sector,
     programa: emprendimiento.programa ? { id: emprendimiento.programa.id, nombre: emprendimiento.programa.nombre } : null,
-    seguimiento: actual
-      ? { id: actual.id, realizado: actual.realizado || '', observaciones: actual.observaciones || '', enlace_grabacion: actual.enlace_grabacion || '' }
-      : { id: null, realizado: '', observaciones: '', enlace_grabacion: '' },
+    // Los comentarios del tallerista y del emprendedor solo se usan en las 1 a 1 de taller
+    seguimiento: {
+      id: actual?.id ?? null,
+      realizado: actual?.realizado || '',
+      observaciones: actual?.observaciones || '',
+      enlace_grabacion: actual?.enlace_grabacion || '',
+      comentario_tallerista: actual?.comentario_tallerista || '',
+      comentario_emprendedor: actual?.comentario_emprendedor || ''
+    },
     compromisos: [...(actual?.compromisoItems || [])]
       .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       .map((c) => ({ id: c.id, descripcion: c.descripcion, estado: c.estado })),

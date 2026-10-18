@@ -86,7 +86,9 @@ describe('sesiones service filaDeRonda', () => {
 
   it('builds notes, this session commitments and the team with attendance', () => {
     const f = fila();
-    expect(f.seguimiento).toEqual({ id: 20, realizado: 'Precios', observaciones: '', enlace_grabacion: '' });
+    expect(f.seguimiento).toEqual({
+      id: 20, realizado: 'Precios', observaciones: '', enlace_grabacion: '', comentario_tallerista: '', comentario_emprendedor: ''
+    });
     expect(f.compromisos).toEqual([{ id: 200, descripcion: 'Llamar a hoteles', estado: 'planeado' }]);
     expect(f.equipo).toEqual([
       { usuario_id: 7, nombre: 'Lucía', apellido: 'Quispe', rol: 'Fundadora', es_lider: true, presente: true },
