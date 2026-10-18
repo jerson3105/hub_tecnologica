@@ -23,13 +23,15 @@ const login = async (req, res) => {
       return res.status(401).json({ mensaje: 'Credenciales inválidas' });
     }
 
-    if (!usuario.activo) {
-      return res.status(401).json({ mensaje: 'Usuario inactivo' });
-    }
-
+    // La contraseña se valida antes de revelar si la cuenta está inactiva,
+    // para no confirmar a un tercero qué correos están registrados
     const passwordValido = await usuario.validarPassword(password);
     if (!passwordValido) {
       return res.status(401).json({ mensaje: 'Credenciales inválidas' });
+    }
+
+    if (!usuario.activo) {
+      return res.status(401).json({ mensaje: 'Tu cuenta está desactivada. Contacta al administrador' });
     }
 
     const token = generarToken(usuario);
@@ -219,6 +221,12 @@ const actualizarUsuario = async (req, res) => {
     const usuario = await Usuario.findByPk(id);
     if (!usuario) {
       return res.status(404).json({ mensaje: 'Usuario no encontrado' });
+    }
+
+    // Evita que un admin se bloquee a sí mismo (desactivándose o quitándose el rol)
+    const esMismoUsuario = req.usuario && Number(id) === req.usuario.id;
+    if (esMismoUsuario && (activo === false || (rol && rol !== 'admin'))) {
+      return res.status(400).json({ mensaje: 'No puedes desactivar tu propia cuenta ni quitarte el rol de administrador' });
     }
 
     if (rol === 'admin' && usuario.rol !== 'admin') {

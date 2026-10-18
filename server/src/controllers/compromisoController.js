@@ -1,9 +1,15 @@
 const { Compromiso, Seguimiento, Sesion, Emprendimiento, Programa, Archivo } = require('../models');
 const logger = require('../utils/logger');
+const { puedeAccederEmprendimiento, denegar } = require('../utils/acceso');
 
 const obtenerPorSeguimiento = async (req, res) => {
   try {
     const { seguimiento_id } = req.params;
+    const seg = await Seguimiento.findByPk(seguimiento_id, { attributes: ['emprendimiento_id'] });
+    if (!seg) return res.status(404).json({ mensaje: 'Seguimiento no encontrado' });
+    if (!(await puedeAccederEmprendimiento(req.usuario, seg.emprendimiento_id))) {
+      return denegar(res, 'No tienes acceso a este seguimiento');
+    }
     const compromisos = await Compromiso.findAll({
       where: { seguimiento_id },
       order: [['orden', 'ASC']]
@@ -18,6 +24,9 @@ const obtenerPorSeguimiento = async (req, res) => {
 const obtenerPendientesPorEmprendimiento = async (req, res) => {
   try {
     const { emprendimiento_id } = req.params;
+    if (!(await puedeAccederEmprendimiento(req.usuario, emprendimiento_id))) {
+      return denegar(res, 'No tienes acceso a este emprendimiento');
+    }
     const seguimientos = await Seguimiento.findAll({
       where: { emprendimiento_id },
       attributes: ['id']
@@ -51,13 +60,14 @@ const crear = async (req, res) => {
   try {
     const { seguimiento_id } = req.params;
     const { descripcion } = req.body;
+    if (!descripcion?.trim()) return res.status(400).json({ mensaje: 'La descripción es requerida' });
 
     const seg = await Seguimiento.findByPk(seguimiento_id);
     if (!seg) return res.status(404).json({ mensaje: 'Seguimiento no encontrado' });
 
     const count = await Compromiso.count({ where: { seguimiento_id } });
     const compromiso = await Compromiso.create({
-      seguimiento_id, descripcion, orden: count
+      seguimiento_id, descripcion: descripcion.trim(), orden: count
     });
     res.status(201).json({ compromiso });
   } catch (error) {
@@ -75,7 +85,7 @@ const actualizarEstado = async (req, res) => {
     if (!compromiso) return res.status(404).json({ mensaje: 'Compromiso no encontrado' });
 
     await compromiso.update({
-      estado,
+      estado: estado || compromiso.estado,
       seguimiento_revision_id: seguimiento_revision_id || compromiso.seguimiento_revision_id
     });
     res.json({ compromiso });
@@ -102,6 +112,9 @@ const eliminar = async (req, res) => {
 const timelineEmprendimiento = async (req, res) => {
   try {
     const { emprendimiento_id } = req.params;
+    if (!(await puedeAccederEmprendimiento(req.usuario, emprendimiento_id))) {
+      return denegar(res, 'No tienes acceso a este emprendimiento');
+    }
 
     // Obtener el programa del emprendimiento
     const emp = await Emprendimiento.findByPk(emprendimiento_id, { attributes: ['id', 'programa_id'] });
@@ -169,15 +182,18 @@ const timelineEmprendimiento = async (req, res) => {
         },
         {
           model: Compromiso,
-          as: 'compromisoItems',
-          order: [['orden', 'ASC']]
+          as: 'compromisoItems'
         },
         {
           model: Compromiso,
           as: 'compromisosRevisados'
         }
       ],
-      order: [[{ model: Sesion, as: 'sesion' }, 'fecha', 'ASC']]
+      // Sequelize ignora `order` dentro de un include: el orden anidado va aquí
+      order: [
+        [{ model: Sesion, as: 'sesion' }, 'fecha', 'ASC'],
+        [{ model: Compromiso, as: 'compromisoItems' }, 'orden', 'ASC']
+      ]
     });
 
     const empId = Number(emprendimiento_id);

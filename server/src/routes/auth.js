@@ -26,7 +26,11 @@ router.put('/cambiar-password', verificarToken, [
 
 router.get('/usuarios', verificarToken, esAdmin, authController.listarUsuarios);
 
-router.put('/usuarios/:id', verificarToken, esAdmin, authController.actualizarUsuario);
+router.put('/usuarios/:id', verificarToken, esAdmin, [
+  body('email').optional({ values: 'falsy' }).isEmail().withMessage('Email inválido'),
+  body('rol').optional({ values: 'falsy' }).isIn(['admin', 'emprendedor']).withMessage('Rol inválido'),
+  body('activo').optional().isBoolean().withMessage('Estado inválido').toBoolean()
+], validate, authController.actualizarUsuario);
 
 router.post('/usuarios/:id/resetear-password', verificarToken, esAdmin, authController.resetearPassword);
 

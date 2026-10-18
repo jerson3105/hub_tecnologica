@@ -42,20 +42,12 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Archivos estáticos (uploads) — protegidos con JWT
-const jwt = require('jsonwebtoken');
-app.use('/uploads', (req, res, next) => {
-  // Mentor photos are public (shown on entrepreneur view)
-  if (req.path.startsWith('/mentores/')) return next();
-  const token = req.query.token || req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ mensaje: 'Token requerido' });
-  try {
-    jwt.verify(token, process.env.JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ mensaje: 'Token inválido' });
-  }
-}, express.static(path.join(__dirname, '../uploads')));
+// Solo las fotos de mentores se sirven como estáticos públicos. El resto de archivos
+// se descarga por /api/archivos/:id/descargar, que verifica el acceso del usuario.
+app.use('/uploads/mentores', express.static(path.join(__dirname, '../uploads/mentores'), {
+  setHeaders: (res) => res.setHeader('Content-Security-Policy', "default-src 'none'")
+}));
+app.use('/uploads', (req, res) => res.status(404).json({ mensaje: 'Recurso no encontrado' }));
 
 // Rate limiting para login
 const loginLimiter = rateLimit({
@@ -66,8 +58,18 @@ const loginLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// Rate limiting para el match con IA (cada llamada consume cuota de Gemini)
+const iaLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 20,
+  message: { mensaje: 'Has alcanzado el límite de consultas a la IA. Intenta de nuevo más tarde.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 // Rutas
 app.use('/api/auth/login', loginLimiter);
+app.use('/api/ia', iaLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/programas', programaRoutes);
 app.use('/api/emprendimientos', emprendimientoRoutes);
@@ -105,8 +107,10 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ mensaje: err.message });
   }
 
-  res.status(err.status || 500).json({
-    mensaje: err.message || 'Error interno del servidor'
+  const status = err.status || err.statusCode || 500;
+  // Los errores 5xx pueden contener detalles internos (SQL, rutas): no se exponen al cliente
+  res.status(status).json({
+    mensaje: status < 500 && err.message ? err.message : 'Error interno del servidor'
   });
 });
 

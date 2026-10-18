@@ -1,13 +1,23 @@
 const { GoogleGenAI } = require('@google/genai');
 const logger = require('../utils/logger');
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 const MODEL = 'gemini-2.0-flash';
+
+// El cliente se crea al primer uso: sin GEMINI_API_KEY el resto de la API debe seguir funcionando
+let ai = null;
+const obtenerCliente = () => {
+  if (!process.env.GEMINI_API_KEY) {
+    const error = new Error('El servicio de IA no está configurado');
+    error.status = 503;
+    throw error;
+  }
+  if (!ai) ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  return ai;
+};
 
 const generarContenido = async (prompt, opciones = {}) => {
   try {
-    const response = await ai.models.generateContent({
+    const response = await obtenerCliente().models.generateContent({
       model: MODEL,
       contents: prompt,
       ...opciones
@@ -19,4 +29,4 @@ const generarContenido = async (prompt, opciones = {}) => {
   }
 };
 
-module.exports = { ai, MODEL, generarContenido };
+module.exports = { MODEL, generarContenido };

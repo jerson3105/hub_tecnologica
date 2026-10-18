@@ -2,24 +2,32 @@ const { Nps, Programa, Sesion, SesionPrograma, Usuario, Integrante, Emprendimien
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 const logger = require('../utils/logger');
+const { puedeAccederSesion } = require('../utils/acceso');
 
 const crear = async (req, res) => {
   try {
     const { sesion_id, puntuacion, comentario, tipo, areas_mejora } = req.body;
     let { programa_id } = req.body;
 
-    // Prevenir duplicados: un usuario solo puede dar NPS una vez por sesión
-    if (sesion_id) {
-      const existente = await Nps.findOne({
-        where: { sesion_id, usuario_id: req.usuario.id }
-      });
-      if (existente) {
-        return res.status(400).json({ mensaje: 'Ya has enviado tu evaluación para esta sesión' });
-      }
+    // Las evaluaciones se dan sobre una sesión del propio programa; sin esto se podría
+    // inflar el NPS de cualquier programa enviando respuestas sueltas
+    if (!sesion_id) {
+      return res.status(400).json({ mensaje: 'La sesión es requerida' });
+    }
+    if (!(await puedeAccederSesion(req.usuario, sesion_id))) {
+      return res.status(403).json({ mensaje: 'No puedes evaluar una sesión de otro programa' });
     }
 
-    // Auto-resolver programa_id desde el emprendimiento del usuario si no viene del cliente
-    if (!programa_id && sesion_id) {
+    // Prevenir duplicados: un usuario solo puede dar NPS una vez por sesión
+    const existente = await Nps.findOne({
+      where: { sesion_id, usuario_id: req.usuario.id }
+    });
+    if (existente) {
+      return res.status(400).json({ mensaje: 'Ya has enviado tu evaluación para esta sesión' });
+    }
+
+    // El programa se resuelve en el servidor desde el emprendimiento del usuario
+    if (req.usuario.rol === 'emprendedor' || !programa_id) {
       const integrante = await Integrante.findOne({
         where: { usuario_id: req.usuario.id },
         include: [{ model: Emprendimiento, as: 'emprendimiento', attributes: ['programa_id'] }]

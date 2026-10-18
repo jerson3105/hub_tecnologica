@@ -54,11 +54,17 @@ const obtenerPorId = async (req, res) => {
           as: 'emprendimientos',
           attributes: ['id', 'nombre', 'sector', 'estado']
         },
+        // Sesiones legacy (programa_id directo) y sesiones multi-programa (sesion_programas)
         {
           model: Sesion,
           as: 'sesiones',
+          attributes: ['id', 'titulo', 'fecha', 'tipo']
+        },
+        {
+          model: Sesion,
+          as: 'sesionesMixtas',
           attributes: ['id', 'titulo', 'fecha', 'tipo'],
-          order: [['fecha', 'ASC']]
+          through: { attributes: [] }
         }
       ]
     });
@@ -67,7 +73,13 @@ const obtenerPorId = async (req, res) => {
       return res.status(404).json({ mensaje: 'Programa no encontrado' });
     }
 
-    res.json({ programa });
+    const sesionesPorId = new Map();
+    [...(programa.sesiones || []), ...(programa.sesionesMixtas || [])].forEach(s => sesionesPorId.set(s.id, s));
+    const sesiones = [...sesionesPorId.values()].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+
+    const datos = programa.toJSON();
+    delete datos.sesionesMixtas;
+    res.json({ programa: { ...datos, sesiones } });
   } catch (error) {
     logger.error('Error al obtener programa:', error);
     res.status(500).json({ mensaje: 'Error interno del servidor' });

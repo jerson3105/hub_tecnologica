@@ -5,9 +5,10 @@ const asistenciaController = require('../controllers/asistenciaController');
 const { verificarToken, esAdmin } = require('../middleware/auth');
 const validate = require('../middleware/validate');
 
-router.use(verificarToken);
+// La asistencia (nombres y correos de los participantes) solo la gestiona el admin
+router.use(verificarToken, esAdmin);
 
-router.post('/', esAdmin, [
+router.post('/', [
   body('sesion_id').isInt().withMessage('La sesión es requerida'),
   body('asistencias').isArray().withMessage('Las asistencias deben ser un arreglo')
 ], validate, asistenciaController.registrar);

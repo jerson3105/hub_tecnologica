@@ -42,6 +42,8 @@ describe('emprendimientoController agregarIntegrante', () => {
     Usuario.findOne.mockResolvedValue(null);
     Usuario.create.mockResolvedValue({
       id: 9,
+      activo: true,
+      rol: 'emprendedor',
       toJSON: () => ({ id: 9, email: 'testing2@gmail.com' })
     });
     Integrante.create.mockResolvedValue({ id: 5 });
@@ -95,5 +97,66 @@ describe('emprendimientoController agregarIntegrante', () => {
       es_lider: true
     }));
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  it('does not let a team leader link an existing account by usuario_id', async () => {
+    Emprendimiento.findByPk.mockResolvedValue({ id: 4 });
+    Integrante.findOne.mockResolvedValue({ id: 1, es_lider: true });
+
+    const req = {
+      params: { id: '4' },
+      usuario: { id: 2, rol: 'emprendedor' },
+      body: { usuario_id: 15 }
+    };
+    const res = createResponse();
+
+    await agregarIntegrante(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(Usuario.findOne).not.toHaveBeenCalled();
+    expect(Integrante.create).not.toHaveBeenCalled();
+  });
+
+  it('does not let a team leader claim an account that already exists by email', async () => {
+    Emprendimiento.findByPk.mockResolvedValue({ id: 4 });
+    Integrante.findOne.mockResolvedValue({ id: 1, es_lider: true });
+    Usuario.findOne.mockResolvedValue({ id: 15, activo: true, rol: 'emprendedor' });
+
+    const req = {
+      params: { id: '4' },
+      usuario: { id: 2, rol: 'emprendedor' },
+      body: { nombre: 'Ana', apellido: 'Ruiz', email: 'ana@test.com' }
+    };
+    const res = createResponse();
+
+    await agregarIntegrante(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(Integrante.create).not.toHaveBeenCalled();
+  });
+
+  it('returns only basic user data to the caller', async () => {
+    Emprendimiento.findByPk.mockResolvedValue({ id: 4 });
+    Integrante.findOne.mockResolvedValue(null);
+    Usuario.findOne.mockResolvedValue(null);
+    Usuario.create.mockResolvedValue({
+      id: 9,
+      activo: true,
+      rol: 'emprendedor',
+      toJSON: () => ({ id: 9, nombre: 'Ana', apellido: 'Ruiz', email: 'ana@test.com', dni: '12345678', direccion: 'Calle 1' })
+    });
+    Integrante.create.mockResolvedValue({ id: 5 });
+
+    const req = {
+      params: { id: '4' },
+      usuario: { id: 1, rol: 'admin' },
+      body: { nombre: 'Ana', apellido: 'Ruiz', email: 'ana@test.com' }
+    };
+    const res = createResponse();
+
+    await agregarIntegrante(req, res);
+
+    const payload = res.json.mock.calls[0][0];
+    expect(payload.usuario).toEqual({ id: 9, nombre: 'Ana', apellido: 'Ruiz', email: 'ana@test.com' });
   });
 });

@@ -133,14 +133,19 @@ const actualizar = async (req, res) => {
       return res.status(404).json({ mensaje: 'Seguimiento no encontrado' });
     }
 
-    const { realizado, compromisos, observaciones, estado_avance, enlace_grabacion } = req.body;
+    const {
+      realizado, compromisos, observaciones, estado_avance, enlace_grabacion,
+      comentario_emprendedor, comentario_tallerista
+    } = req.body;
 
     await seguimiento.update({
       realizado: realizado !== undefined ? realizado : seguimiento.realizado,
       compromisos: compromisos !== undefined ? compromisos : seguimiento.compromisos,
       observaciones: observaciones !== undefined ? observaciones : seguimiento.observaciones,
       estado_avance: estado_avance || seguimiento.estado_avance,
-      enlace_grabacion: enlace_grabacion !== undefined ? enlace_grabacion : seguimiento.enlace_grabacion
+      enlace_grabacion: enlace_grabacion !== undefined ? (enlace_grabacion || null) : seguimiento.enlace_grabacion,
+      comentario_emprendedor: comentario_emprendedor !== undefined ? comentario_emprendedor : seguimiento.comentario_emprendedor,
+      comentario_tallerista: comentario_tallerista !== undefined ? comentario_tallerista : seguimiento.comentario_tallerista
     });
 
     res.json({ mensaje: 'Seguimiento actualizado', seguimiento });

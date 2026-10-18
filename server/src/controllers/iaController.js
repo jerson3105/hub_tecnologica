@@ -107,9 +107,14 @@ Si ningún mentor es claramente compatible, igualmente devuelve los 3 mejores co
       return res.status(500).json({ mensaje: 'Error al procesar la respuesta de la IA' });
     }
 
-    // Enriquecer con datos completos del mentor
+    if (!Array.isArray(resultado?.matches)) {
+      logger.error('Respuesta de Gemini sin matches', { respuesta: respuestaTexto });
+      return res.status(500).json({ mensaje: 'Error al procesar la respuesta de la IA' });
+    }
+
+    // Enriquecer con datos completos del mentor (la IA puede devolver el id como texto)
     const matchesEnriquecidos = resultado.matches.map(match => {
-      const mentor = mentores.find(m => m.id === match.mentor_id);
+      const mentor = mentores.find(m => m.id === Number(match.mentor_id));
       return {
         ...match,
         mentor: mentor ? {
@@ -130,6 +135,9 @@ Si ningún mentor es claramente compatible, igualmente devuelve los 3 mejores co
     res.json({ matches: matchesEnriquecidos });
   } catch (error) {
     logger.error('Error en match de mentor con IA:', error);
+    if (error.status === 503) {
+      return res.status(503).json({ mensaje: 'El match con IA no está disponible en este momento' });
+    }
     res.status(500).json({ mensaje: 'Error al procesar el match con IA' });
   }
 };

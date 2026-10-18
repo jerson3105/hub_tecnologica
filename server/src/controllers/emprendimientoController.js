@@ -183,8 +183,13 @@ const agregarIntegrante = async (req, res) => {
     let usuario;
     let passwordTemporal = null;
     let usuarioCreado = false;
+    const esLider = req.usuario.rol === 'emprendedor';
 
     if (usuario_id) {
+      // Vincular cuentas existentes es tarea del admin: un líder podría apropiarse de cuentas ajenas
+      if (esLider) {
+        return res.status(403).json({ mensaje: 'Solo el administrador puede asignar usuarios existentes' });
+      }
       usuario = await Usuario.findByPk(usuario_id);
       if (!usuario) {
         return res.status(404).json({ mensaje: 'Usuario no encontrado' });
@@ -195,6 +200,12 @@ const agregarIntegrante = async (req, res) => {
       }
 
       usuario = await Usuario.findOne({ where: { email } });
+
+      if (usuario && esLider) {
+        return res.status(400).json({
+          mensaje: 'Ese correo ya tiene una cuenta. Pide al administrador que la asigne a tu emprendimiento'
+        });
+      }
 
       if (!usuario) {
         const passwordGenerado = generarPasswordAleatorio();
@@ -256,10 +267,13 @@ const agregarIntegrante = async (req, res) => {
       es_lider: es_lider || false
     });
 
+    // Solo datos básicos: un líder no necesita el DNI, la dirección, etc. del integrante
+    const { id: usuarioId, nombre: nombreUsuario, apellido: apellidoUsuario, email: emailUsuario } = usuario.toJSON();
+
     res.status(201).json({
       mensaje: 'Integrante agregado exitosamente',
       integrante,
-      usuario: usuario.toJSON(),
+      usuario: { id: usuarioId, nombre: nombreUsuario, apellido: apellidoUsuario, email: emailUsuario },
       usuarioCreado,
       passwordTemporal
     });
@@ -348,16 +362,10 @@ const resetearPasswordIntegrante = async (req, res) => {
 
 const buscarUsuariosParaIntegrante = async (req, res) => {
   try {
-    const { id } = req.params;
-
-    // Verificar que el usuario sea admin o líder de este emprendimiento
-    if (req.usuario.rol === 'emprendedor') {
-      const lider = await Integrante.findOne({
-        where: { emprendimiento_id: id, usuario_id: req.usuario.id, es_lider: true }
-      });
-      if (!lider) {
-        return res.status(403).json({ mensaje: 'Solo los líderes pueden buscar usuarios' });
-      }
+    // El listado incluye correos y teléfonos de todos los emprendedores sin equipo:
+    // solo el admin lo usa para asignar cuentas existentes
+    if (req.usuario.rol !== 'admin') {
+      return res.status(403).json({ mensaje: 'Solo el administrador puede buscar usuarios' });
     }
 
     // Excluir usuarios ya asignados a cualquier emprendimiento

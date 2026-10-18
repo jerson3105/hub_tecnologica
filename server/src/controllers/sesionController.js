@@ -1,6 +1,7 @@
 const { Sesion, SesionPrograma, Programa, Seguimiento, Emprendimiento, Asistencia, Usuario, Archivo, Integrante } = require('../models');
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
+const { puedeAccederSesion, emprendimientoIdsDeUsuario } = require('../utils/acceso');
 
 const crear = async (req, res) => {
   try {
@@ -60,6 +61,10 @@ const listar = async (req, res) => {
       const programaIds = [...new Set(integrantes.map(i => i.emprendimiento?.programa_id).filter(Boolean))];
       if (!programaIds.length) return res.json({ sesiones: [] });
 
+      // Un emprendedor solo puede filtrar dentro de sus propios programas
+      if (programa_id && !programaIds.includes(Number(programa_id))) {
+        return res.json({ sesiones: [] });
+      }
       if (!programa_id) {
         programasInclude.where = { id: { [Op.in]: programaIds } };
         programasInclude.required = true;
@@ -86,45 +91,58 @@ const obtenerPorId = async (req, res) => {
     // Si es emprendedor, obtener sus emprendimiento IDs para filtrar
     let misEmprendimientoIds = [];
     if (esEmprendedor) {
-      const integrantes = await Integrante.findAll({
-        where: { usuario_id: req.usuario.id },
-        attributes: ['emprendimiento_id']
-      });
-      misEmprendimientoIds = integrantes.map(i => i.emprendimiento_id);
+      if (!(await puedeAccederSesion(req.usuario, req.params.id))) {
+        const existe = await Sesion.count({ where: { id: req.params.id } });
+        return existe
+          ? res.status(403).json({ mensaje: 'No tienes acceso a esta sesión' })
+          : res.status(404).json({ mensaje: 'Sesión no encontrada' });
+      }
+      misEmprendimientoIds = await emprendimientoIdsDeUsuario(req.usuario.id);
     }
 
-    const sesion = await Sesion.findByPk(req.params.id, {
-      include: [
-        { model: Programa, as: 'programas', through: { attributes: [] }, attributes: ['id', 'nombre'] },
-        { model: Programa, as: 'programa', attributes: ['id', 'nombre'] },
-        {
-          model: Seguimiento,
-          as: 'seguimientos',
-          required: false,
-          ...(esEmprendedor && misEmprendimientoIds.length > 0
-            ? { where: { emprendimiento_id: misEmprendimientoIds } }
-            : {}),
-          include: [
-            { model: Emprendimiento, as: 'emprendimiento', attributes: ['id', 'nombre'] }
-          ]
-        },
-        {
-          model: Asistencia,
-          as: 'asistencias',
-          include: [
-            { model: Usuario, as: 'usuario', attributes: ['id', 'nombre', 'apellido'] }
-          ]
-        },
-        {
-          model: Archivo,
-          as: 'archivos',
-          attributes: ['id', 'tipo', 'nombre_original', 'url', 'tipo_mime', 'tamanio', 'categoria', 'created_at'],
-          include: [
-            { model: Emprendimiento, as: 'emprendimientos', attributes: ['id', 'nombre'] }
-          ]
-        }
-      ]
-    });
+    const include = [
+      { model: Programa, as: 'programas', through: { attributes: [] }, attributes: ['id', 'nombre'] },
+      { model: Programa, as: 'programa', attributes: ['id', 'nombre'] },
+      {
+        model: Seguimiento,
+        as: 'seguimientos',
+        required: false,
+        // Un emprendedor solo ve el seguimiento de sus emprendimientos (ninguno si no tiene)
+        ...(esEmprendedor ? { where: { emprendimiento_id: misEmprendimientoIds } } : {}),
+        include: [
+          { model: Emprendimiento, as: 'emprendimiento', attributes: ['id', 'nombre'] }
+        ]
+      },
+      {
+        model: Archivo,
+        as: 'archivos',
+        attributes: ['id', 'tipo', 'nombre_original', 'url', 'tipo_mime', 'tamanio', 'categoria', 'created_at'],
+        include: [
+          { model: Emprendimiento, as: 'emprendimientos', attributes: ['id', 'nombre'] }
+        ]
+      }
+    ];
+
+    // La asistencia de todos los participantes solo la ve el admin, agrupada por emprendimiento
+    if (!esEmprendedor) {
+      include.push({
+        model: Asistencia,
+        as: 'asistencias',
+        include: [{
+          model: Usuario,
+          as: 'usuario',
+          attributes: ['id', 'nombre', 'apellido'],
+          include: [{
+            model: Integrante,
+            as: 'integrantes',
+            attributes: ['id', 'emprendimiento_id'],
+            include: [{ model: Emprendimiento, as: 'emprendimiento', attributes: ['id', 'nombre'] }]
+          }]
+        }]
+      });
+    }
+
+    const sesion = await Sesion.findByPk(req.params.id, { include });
 
     if (!sesion) {
       return res.status(404).json({ mensaje: 'Sesión no encontrada' });
