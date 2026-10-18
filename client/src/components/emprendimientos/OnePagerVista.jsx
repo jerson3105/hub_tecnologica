@@ -1,9 +1,7 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Download, Globe, Mail, FileText } from 'lucide-react';
-import toast from 'react-hot-toast';
 import api from '../../services/api';
-import { descargarOnePagerPdf } from '../../utils/onePagerPdf';
+import { useDescargarInforme } from '../../reportes/descargarInforme';
 import Button from '../ui/Button';
 import ErrorCarga from '../ui/ErrorCarga';
 import Skeleton from '../ui/Skeleton';
@@ -26,29 +24,16 @@ const REDES = [
 
 const ENLACE_CLS = 'inline-flex min-h-9 items-center gap-1.5 rounded-control border border-border px-3 text-[13px] font-medium text-link transition-colors hover:bg-muted';
 
-// One Pager del emprendimiento en lectura, con lo que falta por completar y la descarga en PDF.
-// `accion`: botón extra (p. ej. «Editar One Pager» para el propio equipo).
+// One Pager del emprendimiento en lectura, con lo que falta por completar y la descarga en PDF de
+// marca. `accion`: botón extra (p. ej. «Editar One Pager» para el propio equipo).
 const OnePagerVista = ({ emprendimiento, accion = null }) => {
-  const [generando, setGenerando] = useState(false);
+  const { descargar, generando } = useDescargarInforme();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['onePager', String(emprendimiento.id)],
     queryFn: () => api.get(`/one-pager/${emprendimiento.id}`).then((r) => r.data)
   });
   const onePager = data?.onePager || null;
   const completo = data?.completo || false;
-
-  const descargar = async () => {
-    setGenerando(true);
-    try {
-      await descargarOnePagerPdf(emprendimiento, onePager);
-      toast.success('PDF generado');
-    } catch (error) {
-      console.error('Error al generar PDF:', error);
-      toast.error('Error al generar el PDF');
-    } finally {
-      setGenerando(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -83,7 +68,7 @@ const OnePagerVista = ({ emprendimiento, accion = null }) => {
         </div>
         <div className="flex flex-wrap gap-2">
           {completo && (
-            <Button variante="secondary" tamanio="sm" icono={Download} cargando={generando} onClick={descargar}>Descargar PDF</Button>
+            <Button variante="secondary" tamanio="sm" icono={Download} cargando={generando('onepager', emprendimiento.id)} onClick={() => descargar('onepager', emprendimiento.id)}>Descargar PDF</Button>
           )}
           {accion}
         </div>

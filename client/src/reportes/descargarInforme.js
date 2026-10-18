@@ -36,6 +36,18 @@ const CARGAS = {
   satisfaccion: async (programaId) => {
     const { data } = await api.get('/indicadores/satisfaccion', { params: programaId ? { programa_id: programaId } : {} });
     return { datos: data, archivo: ['Satisfaccion-y-asistencia', data.programa?.nombre || 'todos-los-programas', data.hoy] };
+  },
+  onepager: async (id) => {
+    const [detalle, onePager] = await Promise.all([
+      api.get(`/emprendimientos/${id}`),
+      api.get(`/one-pager/${id}`)
+    ]);
+    const emprendimiento = detalle.data.emprendimiento;
+    // en-CA da la fecha local como AAAA-MM-DD
+    return {
+      datos: { emprendimiento, onePager: onePager.data.onePager },
+      archivo: ['One-Pager', emprendimiento.nombre, new Date().toLocaleDateString('en-CA')]
+    };
   }
 };
 
@@ -51,7 +63,8 @@ const descargarBlob = (blob, nombre) => {
 };
 
 // Pide los datos, genera el PDF con la marca (el generador se descarga solo la primera vez) y lo
-// guarda. `id` = programa o emprendimiento; en impacto y satisfacción, vacío = todos los programas.
+// guarda. `id` = programa o emprendimiento (también en onepager); en impacto y satisfacción,
+// vacío = todos los programas.
 export const descargarInforme = async (tipo, id) => {
   const toastId = toast.loading('Preparando el PDF…');
   try {
