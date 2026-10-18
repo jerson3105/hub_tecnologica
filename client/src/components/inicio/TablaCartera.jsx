@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, Rocket } from 'lucide-react';
 import { estadoReunion } from '../../utils/inicio';
 import { TARJETA_CLS, TITULO_BLOQUE_CLS, CHIP_CLS, FONDO_TONO } from '../ui/estilosSemanticos';
@@ -54,11 +54,14 @@ const Inicial = ({ nombre }) => (
   </span>
 );
 
-const Nombre = ({ fila, truncar = false }) => {
+// `enlace`: el nombre lleva a la ficha (en la tabla; en las tarjetas ya es enlace toda la tarjeta)
+const Nombre = ({ fila, truncar = false, enlace = false }) => {
   const estado = ESTADO_NO_ACTIVO[fila.estado];
   return (
     <span className={`flex min-w-0 items-center gap-2 ${truncar ? '' : 'flex-wrap'}`}>
-      <span className={truncar ? 'truncate' : ''}>{fila.nombre}</span>
+      {enlace
+        ? <Link to={`/emprendimientos/${fila.id}`} className="rounded-chip hover:text-link hover:underline">{fila.nombre}</Link>
+        : <span className={truncar ? 'truncate' : ''}>{fila.nombre}</span>}
       {estado && <span className={`${CHIP_CLS} ${FONDO_TONO[estado.tono]}`}>{estado.label}</span>}
     </span>
   );
@@ -81,10 +84,20 @@ const contexto = (c) => [c.sector, c.programa?.nombre].filter(Boolean).join(' ·
 // Cartera ordenada por atención requerida. Tabla cuando el bloque mide 48rem o más (consulta de
 // contenedor: depende del ancho real, con o sin sidebar) y tarjetas por debajo.
 // `mostrarEquipo` añade líder e integrantes; `herramientas` (búsqueda, filtros) va bajo el título.
+// Toda la fila abre la ficha con el ratón (Ctrl/Cmd o botón central: en otra pestaña); con teclado
+// y lector de pantalla, el enlace es el nombre.
 const TablaCartera = ({
   cartera = [], indice = 0, titulo = 'Cartera', vacio = 'No hay emprendimientos activos en este programa.',
   mostrarEquipo = false, herramientas = null, accionVacio = null
-}) => (
+}) => {
+  const navigate = useNavigate();
+  const abrirFila = (e, id) => {
+    if (e.target.closest('a, button, input, select, textarea') || window.getSelection()?.toString()) return;
+    const ruta = `/emprendimientos/${id}`;
+    if (e.ctrlKey || e.metaKey || e.button === 1) window.open(ruta, '_blank', 'noopener');
+    else navigate(ruta);
+  };
+  return (
   <section id="cartera" aria-labelledby="t-cartera" className={`${TARJETA_CLS} @container animate-enter escalonado scroll-mt-4`} style={{ '--i': indice }}>
     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-5 py-4">
       <h2 id="t-cartera" className={TITULO_BLOQUE_CLS}>{titulo}</h2>
@@ -121,12 +134,17 @@ const TablaCartera = ({
             </thead>
             <tbody>
               {cartera.map((c) => (
-                <tr key={c.id} className="border-b border-border transition-colors last:border-b-0 hover:bg-muted/40">
+                <tr
+                  key={c.id}
+                  onClick={(e) => abrirFila(e, c.id)}
+                  onAuxClick={(e) => e.button === 1 && abrirFila(e, c.id)}
+                  className="cursor-pointer border-b border-border transition-colors last:border-b-0 hover:bg-muted/40"
+                >
                   <th scope="row" className="py-3 pl-5 pr-3 text-left font-semibold">
                     <span className="flex items-center gap-2.5">
                       <Inicial nombre={c.nombre} />
                       <span className="grid min-w-0">
-                        <Nombre fila={c} />
+                        <Nombre fila={c} enlace />
                         <span className="whitespace-nowrap text-xs font-normal text-muted-foreground">{contexto(c)}</span>
                       </span>
                     </span>
@@ -137,12 +155,14 @@ const TablaCartera = ({
                   <td className="p-3"><BarraOkr valor={c.okr} /></td>
                   <td className="p-3 text-right tabular-nums">{asistenciaTexto(c.asistencia)}</td>
                   <td className="py-3 pl-3 pr-5 text-right">
+                    {/* Pista visual: el enlace accesible es el nombre (sin duplicarlo en el tabulador) */}
                     <Link
                       to={`/emprendimientos/${c.id}`}
-                      aria-label={`Abrir ${c.nombre}`}
+                      tabIndex={-1}
+                      aria-hidden="true"
                       className="inline-grid size-9 place-items-center rounded-control text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     >
-                      <ChevronRight size={16} aria-hidden="true" />
+                      <ChevronRight size={16} />
                     </Link>
                   </td>
                 </tr>
@@ -199,6 +219,7 @@ const TablaCartera = ({
       </>
     )}
   </section>
-);
+  );
+};
 
 export default TablaCartera;

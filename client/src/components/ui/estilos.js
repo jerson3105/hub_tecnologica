@@ -60,10 +60,6 @@ export const clasesBoton = ({ variante = 'primary', tamanio = 'md', tono = 'cyan
   return `inline-flex items-center justify-center ${esTexto ? 'gap-1.5' : 'gap-2'} rounded-control font-medium whitespace-nowrap transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed ${aspecto} ${className}`.trim();
 };
 
-// Área táctil mínima de 40px (44px en pantallas táctiles)
-export const clasesIconButton = ({ tono = 'neutral', className = '' } = {}) =>
-  `inline-flex items-center justify-center min-w-10 min-h-10 [@media(pointer:coarse)]:min-w-11 [@media(pointer:coarse)]:min-h-11 rounded-control transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${TONOS_TEXTO[tono] || TONOS_TEXTO.neutral} ${className}`.trim();
-
 export const TONOS_BADGE = {
   neutral: 'bg-muted text-foreground',
   cyan: 'bg-info-soft text-info-soft-foreground',

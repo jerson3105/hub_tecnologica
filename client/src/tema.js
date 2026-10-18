@@ -9,7 +9,7 @@ const TEMAS = ['sistema', 'claro', 'oscuro'];
 
 // Pantallas que aún usan los estilos anteriores (sin roles semánticos): se ven en claro aunque el
 // tema sea oscuro. Quitar cada una al rediseñarla (y también de public/tema.js).
-export const RUTAS_SOLO_CLARO = ['/login', '/perfil'];
+export const RUTAS_SOLO_CLARO = ['/perfil'];
 export const soloClaro = (ruta) => RUTAS_SOLO_CLARO.some((r) => ruta === r || ruta.startsWith(`${r}/`));
 
 const oyentes = new Set();
