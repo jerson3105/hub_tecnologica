@@ -11,6 +11,7 @@ import Skeleton from '../ui/Skeleton';
 import ErrorCarga from '../ui/ErrorCarga';
 import { TARJETA_CLS, BOTON_PRIMARIO_CLS, BOTON_SECUNDARIO_CLS } from '../ui/estilosSemanticos';
 import { TIPOS_CON_REGISTRO } from '../../constants/sesiones';
+import { fechasPasadasDe } from '../../utils/compromisos';
 import { esFutura } from '../../utils/fechas';
 import { haceDias } from '../../utils/inicio';
 
@@ -101,7 +102,7 @@ const PanelSeguimiento = ({ emprendimientoId, tab, onTab, onVolver }) => {
       <div role="tabpanel" id={`seg-panel-${tab}`} aria-labelledby={`seg-tab-${tab}`} tabIndex={0} className="rounded-card">
         {tab === 'resumen' && (
           <div className="grid items-start gap-4 @4xl:grid-cols-[minmax(0,1fr)_20rem]">
-            <CompromisosAbiertos key={emp.id} emprendimientoId={emp.id} editable />
+            <CompromisosAbiertos key={emp.id} emprendimientoId={emp.id} editable fechasPasadas={fechasPasadasDe(seguimientos, resumenData?.hoy)} />
             <div className="grid gap-4">
               <ProximaSesion sesion={resumenData?.proximaSesion} hoy={resumenData?.hoy} />
               <LineaSeguimiento

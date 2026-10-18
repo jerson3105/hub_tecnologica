@@ -9,15 +9,17 @@ import Skeleton from '../ui/Skeleton';
 import { useCompromisosPendientes } from '../../hooks/useQueryHooks';
 import { formatFecha, esFutura } from '../../utils/fechas';
 import { OPCIONES_REVISION } from '../../utils/ronda';
+import { vencidoDe } from '../../utils/compromisos';
 import { estadoDe, ESTADOS_ACTIVIDAD } from '../../constants/estados';
-import { TARJETA_CLS, TITULO_BLOQUE_CLS } from '../ui/estilosSemanticos';
+import { TARJETA_CLS, TITULO_BLOQUE_CLS, CHIP_CLS, FONDO_TONO } from '../ui/estilosSemanticos';
 
 const CERRADOS = ['completado', 'no_logrado'];
 const OPCIONES = OPCIONES_REVISION.map((o) => ({ ...o, tono: o.valor === 'completado' ? 'success' : 'info' }));
 
 // Compromisos abiertos del emprendimiento (de todas sus reuniones). El estado se guarda al
 // elegirlo; los que se cierran siguen a la vista con «Deshacer» hasta la próxima visita.
-const CompromisosAbiertos = ({ emprendimientoId, editable = false }) => {
+// `fechasPasadas` (utils/compromisos fechasPasadasDe) marca los vencidos; `ayuda`, texto bajo el título.
+const CompromisosAbiertos = ({ emprendimientoId, editable = false, fechasPasadas = null, ayuda = null }) => {
   const queryClient = useQueryClient();
   const { data: compromisos = [], isLoading, isError, refetch } = useCompromisosPendientes(emprendimientoId);
   const [cambios, setCambios] = useState({}); // id → { estado, previo }
@@ -49,14 +51,20 @@ const CompromisosAbiertos = ({ emprendimientoId, editable = false }) => {
   if (isError) return <div className={TARJETA_CLS}><ErrorCarga mensaje="No se pudieron cargar los compromisos." onReintentar={refetch} /></div>;
 
   const abiertos = compromisos.filter((c) => !CERRADOS.includes(cambios[c.id]?.estado));
+  const vencido = (c) => !!fechasPasadas && vencidoDe(c, fechasPasadas);
+  const vencidos = abiertos.filter(vencido).length;
 
   return (
     <section aria-labelledby={`t-compromisos-${emprendimientoId}`} className={`${TARJETA_CLS} grid gap-3 p-5`}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id={`t-compromisos-${emprendimientoId}`} className={TITULO_BLOQUE_CLS}>Compromisos abiertos</h2>
-        <span className="text-[13px] tabular-nums text-muted-foreground" aria-live="polite">
-          {abiertos.length === 1 ? '1 abierto' : `${abiertos.length} abiertos`}
-        </span>
+      <div className="grid gap-1">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id={`t-compromisos-${emprendimientoId}`} className={TITULO_BLOQUE_CLS}>Compromisos abiertos</h2>
+          <span className="text-[13px] tabular-nums text-muted-foreground" aria-live="polite">
+            {abiertos.length === 1 ? '1 abierto' : `${abiertos.length} abiertos`}
+            {vencidos > 0 && <span className="font-semibold text-danger"> · {vencidos === 1 ? '1 vencido' : `${vencidos} vencidos`}</span>}
+          </span>
+        </div>
+        {ayuda && <p className="text-[13px] text-muted-foreground">{ayuda}</p>}
       </div>
       {compromisos.length === 0 ? (
         <p className="flex items-center gap-2 text-sm text-muted-foreground"><CheckCircle2 size={16} className="text-success" aria-hidden="true" />No hay compromisos abiertos.</p>
@@ -70,7 +78,10 @@ const CompromisosAbiertos = ({ emprendimientoId, editable = false }) => {
             return (
               <li key={c.id} className={`flex flex-wrap items-center justify-between gap-3 rounded-control border border-border p-3 transition-opacity ${cerrado ? 'bg-muted/40' : ''}`}>
                 <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-medium ${cerrado ? 'text-muted-foreground line-through' : ''}`}>{c.descripcion}</p>
+                  <p className={`text-sm font-medium ${cerrado ? 'text-muted-foreground line-through' : ''}`}>
+                    {c.descripcion}
+                    {!cerrado && vencido(c) && <span className={`${CHIP_CLS} ${FONDO_TONO.danger} ml-2 align-middle`} title="Ya pasó otra sesión desde que se acordó">Vencido</span>}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {sesion ? `De ${sesion.titulo}, ${formatFecha(sesion.fecha, { day: 'numeric', month: 'short' })}` : 'Sin sesión'}
                     {sesion && esFutura(sesion.fecha) && ' · sesión aún no realizada'}

@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useEmprendimiento, useEmprendimientoResumen, useArchivos, useInvalidate } from '../../hooks/useQueryHooks';
 import { esFutura } from '../../utils/fechas';
 import { haceDias } from '../../utils/inicio';
+import { fechasPasadasDe } from '../../utils/compromisos';
 import useAvisos from '../shell/useAvisos';
 import TarjetaKpi from '../inicio/TarjetaKpi';
 import LineaSeguimiento from './LineaSeguimiento';
@@ -106,8 +107,8 @@ const PorHacer = ({ asuntos }) => (
 
 // Espacio de un emprendimiento con pestañas en la URL (?tab=). El equipo técnico ve todo y gestiona;
 // el emprendedor (su «Mi emprendimiento») ve Resumen con «Por hacer», One Pager, Modelo de negocio,
-// Materiales y Equipo, y edita ahí mismo su One Pager (?tab=onepager&editar=1) y su BMC. Su
-// seguimiento y sus objetivos están en Mi seguimiento y Mis objetivos.
+// Materiales y Equipo, y edita ahí mismo su One Pager (?tab=onepager&editar=1) y su BMC. Sus
+// compromisos, objetivos e historial de sesiones están en Mi plan.
 const EspacioEmprendimiento = ({ id }) => {
   const { esAdmin, usuario } = useAuth();
   const invalidate = useInvalidate();
@@ -163,7 +164,7 @@ const EspacioEmprendimiento = ({ id }) => {
       titulo: plural(resumen.abiertos, 'compromiso abierto', 'compromisos abiertos'),
       detalle: resumen.vencidos > 0 ? `${plural(resumen.vencidos, 'ya vencido', 'ya vencidos')}: revísalos antes de la próxima sesión.` : 'Acordados en tus sesiones de seguimiento.',
       accion: 'Ver',
-      to: '/mi-seguimiento'
+      to: '/mi-plan'
     }
   ].filter(Boolean);
 
@@ -263,13 +264,13 @@ const EspacioEmprendimiento = ({ id }) => {
                       Ver todo el seguimiento
                     </button>
                   ) : (
-                    <Link to="/mi-seguimiento" className="rounded-control text-sm font-semibold text-link hover:underline">Ver mi seguimiento</Link>
+                    <Link to="/mi-plan?tab=historial" className="rounded-control text-sm font-semibold text-link hover:underline">Ver el historial</Link>
                   ))}
                 />
                 <div className="grid gap-4">
                   <ProximaSesion sesion={resumenData?.proximaSesion} hoy={hoy} />
                   {!esAdmin && (
-                    <Link to="/mis-objetivos" className={`${TARJETA_CLS} flex items-center gap-3 p-4 transition-colors hover:bg-muted/60`}>
+                    <Link to="/mi-plan?tab=objetivos" className={`${TARJETA_CLS} flex items-center gap-3 p-4 transition-colors hover:bg-muted/60`}>
                       <span className="grid size-9 shrink-0 place-items-center rounded-control bg-info-soft text-info-soft-foreground"><Target size={18} aria-hidden="true" /></span>
                       <span className="grid min-w-0 flex-1">
                         <span className="text-sm font-semibold">Mis objetivos</span>
@@ -290,7 +291,7 @@ const EspacioEmprendimiento = ({ id }) => {
           )}
           {tab === 'seguimiento' && esAdmin && (
             <div className="grid gap-4 lg:gap-6">
-              <CompromisosAbiertos key={emp.id} emprendimientoId={emp.id} editable />
+              <CompromisosAbiertos key={emp.id} emprendimientoId={emp.id} editable fechasPasadas={fechasPasadasDe(seguimientos, hoy)} />
               <LineaSeguimiento seguimientos={seguimientos} enlaceRegistro={enlaceRegistro} />
             </div>
           )}

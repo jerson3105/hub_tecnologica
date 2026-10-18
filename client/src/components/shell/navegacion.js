@@ -5,8 +5,7 @@ import {
 
 // Navegación por rol (rediseno/PROPUESTA.md §4). `aviso` enlaza el contador de useAvisos;
 // `corto` es la etiqueta de la barra inferior del móvil e `inferior`, sus 4 destinos (el resto va
-// en «Más»). La Agenda y «Mi plan» llegarán con sus fases: por ahora Sesiones y Mi seguimiento /
-// Mis objetivos.
+// en «Más»). La Agenda llegará con su fase: por ahora Sesiones (y el historial, en Mi plan).
 
 const ADMIN = {
   inicio: '/dashboard',
@@ -40,14 +39,13 @@ const EMPRENDEDOR = {
       enlaces: [
         { to: '/mi-emprendimiento', label: 'Mi emprendimiento', icono: Rocket, corto: 'Inicio', aviso: 'onepager' },
         { to: '/sesiones', label: 'Sesiones', icono: CalendarDays, aviso: 'evaluaciones' },
-        { to: '/mi-seguimiento', label: 'Mi seguimiento', icono: ClipboardList, corto: 'Seguimiento' },
-        { to: '/mis-objetivos', label: 'Mis objetivos', icono: Target },
+        { to: '/mi-plan', label: 'Mi plan', icono: Target },
         { to: '/mentores', label: 'Mentores', icono: GraduationCap }
       ]
     }
     // One Pager, Modelo de negocio y Materiales son pestañas de Mi emprendimiento
   ],
-  inferior: ['/mi-emprendimiento', '/sesiones', '/mi-seguimiento', '/mentores']
+  inferior: ['/mi-emprendimiento', '/sesiones', '/mi-plan', '/mentores']
 };
 
 export const navegacionDe = (esAdmin) => (esAdmin ? ADMIN : EMPRENDEDOR);

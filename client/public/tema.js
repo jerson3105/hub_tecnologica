@@ -1,7 +1,7 @@
 // Aplica el tema guardado antes del primer pintado (sin parpadeo blanco en modo oscuro).
 // Misma lógica que src/tema.js; mantener RUTAS_SOLO_CLARO sincronizada con esa lista.
 (function () {
-  var RUTAS_SOLO_CLARO = ['/login', '/mi-seguimiento', '/mis-objetivos', '/perfil'];
+  var RUTAS_SOLO_CLARO = ['/login', '/perfil'];
   try {
     var tema = localStorage.getItem('tema') || 'sistema';
     var oscuro = tema === 'oscuro' || (tema === 'sistema' && window.matchMedia('(prefers-color-scheme: dark)').matches);

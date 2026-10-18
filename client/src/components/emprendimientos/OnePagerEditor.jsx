@@ -4,6 +4,7 @@ import { ArrowLeft, Save, CheckCircle2, Circle, Download, Sparkles } from 'lucid
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { useDescargarInforme } from '../../reportes/descargarInforme';
+import { conEsquema, esEnlaceValido } from '../../utils/enlaces';
 import Button from '../ui/Button';
 import ErrorCarga from '../ui/ErrorCarga';
 import Skeleton from '../ui/Skeleton';
@@ -33,9 +34,6 @@ const ENLACES = [
   ['twitter', 'X / Twitter', 'https://x.com/…'], ['youtube', 'YouTube', 'https://youtube.com/@…'],
   ['logo_url', 'Logo (enlace a la imagen)', 'https://…']
 ];
-// Los enlaces se aceptan sin esquema («instagram.com/miproyecto») y se guardan con https://
-const conEsquema = (v) => (/^https?:\/\//i.test(v) ? v : `https://${v}`);
-const URL_VALIDA = /^https?:\/\/[^\s./]+\.\S+$/i;
 const CAMPOS_ENLACE = new Set(ENLACES.map(([c]) => c));
 const CORREO_VALIDO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const lleno = (v) => typeof v === 'string' && v.trim().length > 0;
@@ -81,7 +79,7 @@ const OnePagerEditor = ({ emprendimiento, onSalir, onPendientes }) => {
   const hechos = OBLIGATORIOS.filter(([c]) => lleno(valores[c])).length;
   const errores = {
     correo_proyecto: lleno(valores.correo_proyecto) && !CORREO_VALIDO.test(valores.correo_proyecto.trim()) ? 'Revisa el correo' : null,
-    ...Object.fromEntries(ENLACES.map(([c]) => [c, lleno(valores[c]) && !URL_VALIDA.test(conEsquema(valores[c].trim())) ? 'Revisa el enlace (p. ej. instagram.com/tuproyecto)' : null]))
+    ...Object.fromEntries(ENLACES.map(([c]) => [c, lleno(valores[c]) && !esEnlaceValido(valores[c]) ? 'Revisa el enlace (p. ej. instagram.com/tuproyecto)' : null]))
   };
   const hayErrores = Object.values(errores).some(Boolean);
 

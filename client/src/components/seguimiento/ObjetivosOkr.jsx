@@ -6,9 +6,11 @@ import api from '../../services/api';
 import Trazo from '../ui/Trazo';
 import ErrorCarga from '../ui/ErrorCarga';
 import Skeleton from '../ui/Skeleton';
-import { Input } from '../ui/Field';
+import Button from '../ui/Button';
+import { Field, Input, Select } from '../ui/Field';
 import { useObjetivos } from '../../hooks/useQueryHooks';
 import { avanceDe, actividadesDe } from '../../utils/okr';
+import { conEsquema, esEnlaceValido } from '../../utils/enlaces';
 import { formatFecha, esFutura } from '../../utils/fechas';
 import { TIPOS_OBJETIVO, ESTADOS_ACTIVIDAD, estadoDe } from '../../constants/estados';
 import { TARJETA_CLS, TITULO_BLOQUE_CLS, CHIP_CLS, FONDO_TONO, iconoBotonCls } from '../ui/estilosSemanticos';
@@ -115,11 +117,88 @@ const AgregarEnLinea = ({ etiqueta, placeholder, conMeta = false, onAgregar }) =
   );
 };
 
-// OKR del emprendimiento. `editable` (equipo técnico): actualizar el avance, añadir resultados
-// clave y actividades y quitar actividades. Borrar objetivos queda para el emprendimiento.
-const ObjetivosOkr = ({ emprendimientoId, editable = false, enlaceEdicion = null }) => {
+// Evidencia de un objetivo: enlace (Drive, web, video…) con una descripción opcional
+const AgregarEvidencia = ({ onAgregar }) => {
+  const [abierto, setAbierto] = useState(false);
+  const [url, setUrl] = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const cerrar = () => { setAbierto(false); setUrl(''); setDescripcion(''); };
+  const invalida = url.trim() !== '' && !esEnlaceValido(url);
+  const enviar = async (e) => {
+    e.preventDefault();
+    if (!url.trim() || invalida) return;
+    setEnviando(true);
+    const ok = await onAgregar(conEsquema(url.trim()), descripcion.trim());
+    setEnviando(false);
+    if (ok) cerrar();
+  };
+  if (!abierto) {
+    return <button type="button" onClick={() => setAbierto(true)} className={`${ENLACE_CLS} w-fit`}><Plus size={15} aria-hidden="true" />Agregar evidencia</button>;
+  }
+  return (
+    <form onSubmit={enviar} className="flex flex-wrap items-start gap-2">
+      <div className="grid min-w-[12rem] flex-1 gap-1">
+        <Input value={url} onChange={(e) => setUrl(e.target.value)} type="url" inputMode="url" placeholder="Enlace (Drive, web, video…)" aria-label="Enlace de la evidencia" aria-invalid={invalida || undefined} autoFocus />
+        {invalida && <span role="alert" className="text-xs text-danger">Revisa el enlace</span>}
+      </div>
+      <Input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder="Qué muestra (opcional)" aria-label="Descripción de la evidencia" className="min-w-[10rem] flex-1" />
+      <button type="submit" disabled={enviando || !url.trim() || invalida} className="inline-flex min-h-10 items-center rounded-control bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary-hover disabled:opacity-50">Agregar</button>
+      <button type="button" onClick={cerrar} className="inline-flex min-h-10 items-center rounded-control px-3 text-sm text-muted-foreground hover:bg-muted">Cancelar</button>
+    </form>
+  );
+};
+
+const OBJETIVO_VACIO = { titulo: '', tipo: 'producto_desarrollo', fecha_limite: '' };
+
+// Alta de un objetivo (lo hace el propio emprendimiento): qué quiere lograr, área y fecha límite
+const NuevoObjetivo = ({ onCrear, onCancelar }) => {
+  const [datos, setDatos] = useState(OBJETIVO_VACIO);
+  const [enviando, setEnviando] = useState(false);
+  const cambiar = (campo) => (e) => setDatos({ ...datos, [campo]: e.target.value });
+  const enviar = async (e) => {
+    e.preventDefault();
+    if (!datos.titulo.trim()) return;
+    setEnviando(true);
+    const ok = await onCrear({ ...datos, titulo: datos.titulo.trim(), fecha_limite: datos.fecha_limite || null });
+    setEnviando(false);
+    if (ok) onCancelar();
+  };
+  return (
+    <form onSubmit={enviar} aria-labelledby="t-nuevo-objetivo" className={`${TARJETA_CLS} grid gap-4 p-5`}>
+      <div>
+        <h3 id="t-nuevo-objetivo" className="font-display text-lg font-semibold">Nuevo objetivo</h3>
+        <p className="text-[13px] text-muted-foreground">Después le añades resultados clave (cómo sabrás que lo lograste) y actividades.</p>
+      </div>
+      <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_13rem_11rem]">
+        <Field label="¿Qué quieres lograr?" requerido ayuda="Concreto: «Validar la demanda con 30 clientes»" className="sm:col-span-2 lg:col-span-1">
+          <Input value={datos.titulo} onChange={cambiar('titulo')} maxLength={255} autoFocus />
+        </Field>
+        <Field label="Área">
+          <Select value={datos.tipo} onChange={cambiar('tipo')}>
+            {Object.entries(TIPOS_OBJETIVO).map(([valor, { label }]) => <option key={valor} value={valor}>{label}</option>)}
+          </Select>
+        </Field>
+        <Field label="Fecha límite">
+          <Input type="date" value={datos.fecha_limite} onChange={cambiar('fecha_limite')} />
+        </Field>
+      </div>
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button variante="ghost" onClick={onCancelar}>Cancelar</Button>
+        <Button type="submit" icono={Plus} cargando={enviando} disabled={!datos.titulo.trim()}>Crear objetivo</Button>
+      </div>
+    </form>
+  );
+};
+
+// OKR del emprendimiento. `editable`: actualizar el avance, añadir resultados clave, actividades
+// y evidencias y quitar actividades y evidencias (equipo técnico y el propio emprendimiento).
+// `propio` (el emprendimiento, en Mi plan): además crear y quitar objetivos, que el equipo técnico
+// solo revisa.
+const ObjetivosOkr = ({ emprendimientoId, editable = false, propio = false }) => {
   const queryClient = useQueryClient();
   const { data: objetivos = [], isLoading, isError, refetch } = useObjetivos(emprendimientoId);
+  const [creando, setCreando] = useState(false);
 
   const refrescar = () => ['objetivos', 'emprendimientos', 'emprendimiento', 'inicio', 'programa', 'programas']
     .forEach((k) => queryClient.invalidateQueries({ queryKey: [k] }));
@@ -137,17 +216,28 @@ const ObjetivosOkr = ({ emprendimientoId, editable = false, enlaceEdicion = null
   const guardarActividad = (id, cambios) => ejecutar(() => api.put(`/objetivos/actividad/${id}`, cambios));
   const eliminarActividad = (act) => window.confirm(`¿Quitar la actividad «${act.descripcion}»?`)
     && ejecutar(() => api.delete(`/objetivos/actividad/${act.id}`), 'Actividad quitada');
+  const crearObjetivo = (datos) => ejecutar(() => api.post(`/objetivos/emprendimiento/${emprendimientoId}`, datos), 'Objetivo creado');
+  const eliminarObjetivo = (obj) => window.confirm(`¿Quitar el objetivo «${obj.titulo}» con sus resultados clave y actividades?`)
+    && ejecutar(() => api.delete(`/objetivos/${obj.id}`), 'Objetivo quitado');
+  const quitarEvidencia = (ev) => window.confirm(`¿Quitar la evidencia «${ev.descripcion || ev.url}»?`)
+    && ejecutar(() => api.delete(`/objetivos/evidencia/${ev.id}`), 'Evidencia quitada');
 
   if (isLoading) return <div className={`${TARJETA_CLS} grid gap-3 p-5`} role="status" aria-label="Cargando objetivos"><Skeleton className="h-6 w-56" /><Skeleton className="h-1.5 w-full" />{[0, 1].map((i) => <Skeleton key={i} className="h-12" />)}</div>;
   if (isError) return <div className={TARJETA_CLS}><ErrorCarga mensaje="No se pudieron cargar los objetivos." onReintentar={refetch} /></div>;
 
+  const formulario = creando && <NuevoObjetivo onCrear={crearObjetivo} onCancelar={() => setCreando(false)} />;
+
   if (objetivos.length === 0) {
-    return (
+    return formulario || (
       <div className={`${TARJETA_CLS} grid justify-items-center gap-3 px-5 py-10 text-center`}>
         <span className="grid size-12 place-items-center rounded-card bg-muted text-muted-foreground"><Target size={24} aria-hidden="true" /></span>
-        <p className="font-semibold">Aún no hay objetivos</p>
-        <p className="max-w-md text-sm text-muted-foreground">Los define el propio emprendimiento desde «Mis objetivos». Aquí se revisan y se ajusta su avance.</p>
-        {enlaceEdicion}
+        <p className="font-semibold">{propio ? 'Aún no tienes objetivos' : 'Aún no hay objetivos'}</p>
+        <p className="max-w-md text-sm text-muted-foreground">
+          {propio
+            ? 'Define de 1 a 3 objetivos para el programa: cada uno se mide con resultados clave y avanza con actividades.'
+            : 'Los define el propio emprendimiento desde «Mi plan». Aquí se revisan y se ajusta su avance.'}
+        </p>
+        {propio && <Button icono={Plus} onClick={() => setCreando(true)}>Crear mi primer objetivo</Button>}
       </div>
     );
   }
@@ -161,8 +251,9 @@ const ObjetivosOkr = ({ emprendimientoId, editable = false, enlaceEdicion = null
           <p className="text-sm font-semibold">Avance general</p>
           <Avance valor={general} etiqueta="Avance general" />
         </div>
-        {enlaceEdicion}
+        {propio && !creando && <Button variante="secondary" icono={Plus} onClick={() => setCreando(true)}>Nuevo objetivo</Button>}
       </div>
+      {formulario}
       {objetivos.map((obj) => {
         const tipo = TIPOS_OBJETIVO[obj.tipo];
         const vencido = obj.fecha_limite && !esFutura(obj.fecha_limite) && avanceDe(actividadesDe(obj)) !== 100;
@@ -175,6 +266,11 @@ const ObjetivosOkr = ({ emprendimientoId, editable = false, enlaceEdicion = null
                   <span className={`${CHIP_CLS} ${FONDO_TONO[vencido ? 'danger' : 'neutral']}`}>
                     {vencido ? 'Venció' : 'Vence'} el {formatFecha(obj.fecha_limite, { day: 'numeric', month: 'short', year: 'numeric' })}
                   </span>
+                )}
+                {propio && (
+                  <button type="button" onClick={() => eliminarObjetivo(obj)} className={`${iconoBotonCls('danger')} ml-auto`} aria-label={`Quitar el objetivo «${obj.titulo}»`} title="Quitar objetivo">
+                    <Trash2 size={15} aria-hidden="true" />
+                  </button>
                 )}
               </div>
               <h3 id={`obj-${obj.id}`} className={TITULO_BLOQUE_CLS}>{obj.titulo}</h3>
@@ -216,19 +312,31 @@ const ObjetivosOkr = ({ emprendimientoId, editable = false, enlaceEdicion = null
               />
             )}
 
-            {(obj.evidencias || []).length > 0 && (
+            {((obj.evidencias || []).length > 0 || editable) && (
               <div className="grid gap-1.5 border-t border-border pt-3">
                 <p className="eyebrow">Evidencias</p>
-                <ul className="flex flex-wrap gap-2">
-                  {obj.evidencias.map((ev) => (
-                    <li key={ev.id}>
-                      <a href={ev.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-control border border-border px-3 text-[13px] font-medium text-link hover:bg-muted">
-                        <Link2 size={13} aria-hidden="true" />{ev.descripcion || 'Evidencia'}<ExternalLink size={12} aria-hidden="true" />
-                        <span className="sr-only"> (se abre en otra pestaña)</span>
-                      </a>
-                    </li>
-                  ))}
-                </ul>
+                {(obj.evidencias || []).length > 0 && (
+                  <ul className="flex flex-wrap gap-2">
+                    {obj.evidencias.map((ev) => (
+                      <li key={ev.id} className="flex items-center">
+                        <a href={ev.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-control border border-border px-3 text-[13px] font-medium text-link hover:bg-muted">
+                          <Link2 size={13} aria-hidden="true" />{ev.descripcion || 'Evidencia'}<ExternalLink size={12} aria-hidden="true" />
+                          <span className="sr-only"> (se abre en otra pestaña)</span>
+                        </a>
+                        {editable && (
+                          <button type="button" onClick={() => quitarEvidencia(ev)} className={iconoBotonCls('danger')} aria-label={`Quitar la evidencia «${ev.descripcion || ev.url}»`} title="Quitar evidencia">
+                            <Trash2 size={14} aria-hidden="true" />
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {editable && (
+                  <AgregarEvidencia
+                    onAgregar={(url, descripcion) => ejecutar(() => api.post(`/objetivos/evidencia/${obj.id}`, { url, descripcion }), 'Evidencia agregada')}
+                  />
+                )}
               </div>
             )}
           </section>

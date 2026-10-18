@@ -24,8 +24,7 @@ const RegistroRonda = lazy(() => import('./pages/RegistroRonda'));
 const Reportes = lazy(() => import('./pages/Reportes'));
 const Mentores = lazy(() => import('./pages/Mentores'));
 const Seguimiento = lazy(() => import('./pages/Seguimiento'));
-const MisObjetivos = lazy(() => import('./pages/MisObjetivos'));
-const MiSeguimiento = lazy(() => import('./pages/MiSeguimiento'));
+const MiPlan = lazy(() => import('./pages/MiPlan'));
 
 const Cargando = ({ pantallaCompleta = false }) => (
   <div className={`${pantallaCompleta ? 'min-h-dvh bg-background' : 'h-64'} flex items-center justify-center`} role="status" aria-label="Cargando">
@@ -107,8 +106,10 @@ function App() {
             {/* One Pager y BMC se editan en las pestañas de Mi emprendimiento; las rutas antiguas redirigen */}
             <Route path="/one-pager" element={<Navigate to="/mi-emprendimiento?tab=onepager&editar=1" replace />} />
             <Route path="/bmc" element={<Navigate to="/mi-emprendimiento?tab=bmc" replace />} />
-            <Route path="/mis-objetivos" element={<MisObjetivos />} />
-            <Route path="/mi-seguimiento" element={<MiSeguimiento />} />
+            {/* Mi plan une Mi seguimiento y Mis objetivos; las rutas antiguas redirigen */}
+            <Route path="/mi-plan" element={<MiPlan />} />
+            <Route path="/mi-seguimiento" element={<Navigate to="/mi-plan" replace />} />
+            <Route path="/mis-objetivos" element={<Navigate to="/mi-plan?tab=objetivos" replace />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
