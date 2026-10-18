@@ -7,14 +7,12 @@ import Modal, { ModalPie } from '../Modal';
 import Button from '../ui/Button';
 import ContrasenaTemporal from './ContrasenaTemporal';
 import AsignarEmprendimiento from './AsignarEmprendimiento';
-import { CHIP_CLS, FONDO_TONO, BOTON_SECUNDARIO_CLS } from '../ui/estilosSemanticos';
+import { CHIP_CLS, FONDO_TONO, BOTON_SECUNDARIO_CLS, BOTON_PELIGRO_CLS } from '../ui/estilosSemanticos';
 import { ROLES_USUARIO } from '../../constants/estados';
 import { GENEROS } from '../../constants/integrantes';
 import { formatFecha } from '../../utils/fechas';
 
 const SUBTITULO_CLS = 'text-xs font-semibold uppercase tracking-wide text-muted-foreground';
-// Como BOTON_SECUNDARIO_CLS pero en rojo (sumar text-danger a esa clase no gana de forma fiable)
-const BOTON_PELIGRO_CLS = 'inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-control border border-input bg-card px-4 text-sm font-medium text-danger transition-colors hover:bg-danger-soft';
 
 // Datos personales que tiene el usuario, en el orden en que se leen
 const datosDe = (u) => [

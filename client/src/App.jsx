@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -17,7 +17,6 @@ const Sesiones = lazy(() => import('./pages/Sesiones'));
 const SesionDetalle = lazy(() => import('./pages/SesionDetalle'));
 const Materiales = lazy(() => import('./pages/Materiales'));
 const Usuarios = lazy(() => import('./pages/Usuarios'));
-const Asistencias = lazy(() => import('./pages/Asistencias'));
 const Perfil = lazy(() => import('./pages/Perfil'));
 const MiEmprendimiento = lazy(() => import('./pages/MiEmprendimiento'));
 const OnePager = lazy(() => import('./pages/OnePager'));
@@ -25,7 +24,6 @@ const Bmc = lazy(() => import('./pages/Bmc'));
 const RegistroRonda = lazy(() => import('./pages/RegistroRonda'));
 const Reportes = lazy(() => import('./pages/Reportes'));
 const Mentores = lazy(() => import('./pages/Mentores'));
-const MisMentores = lazy(() => import('./pages/MisMentores'));
 const Seguimiento = lazy(() => import('./pages/Seguimiento'));
 const MisObjetivos = lazy(() => import('./pages/MisObjetivos'));
 const MiSeguimiento = lazy(() => import('./pages/MiSeguimiento'));
@@ -40,6 +38,14 @@ const Cargando = ({ pantallaCompleta = false }) => (
 const RedirigirEvaluacion = () => {
   const { id } = useParams();
   return <Navigate to={`/sesiones/${id}?tab=evaluacion`} replace />;
+};
+
+// /asistencias se retiró: la asistencia se toma en la pestaña de cada sesión.
+// /asistencias?sesion=ID (enlaces guardados) → esa pestaña; sin sesión → la lista de sesiones.
+const RedirigirAsistencias = () => {
+  const [searchParams] = useSearchParams();
+  const sesion = Number(searchParams.get('sesion'));
+  return <Navigate to={sesion ? `/sesiones/${sesion}?tab=asistencia` : '/sesiones'} replace />;
 };
 
 const RedirectByRole = () => {
@@ -68,9 +74,8 @@ function App() {
             <Route path="/emprendimientos" element={<ProtectedRoute adminOnly><Emprendimientos /></ProtectedRoute>} />
             <Route path="/seguimientos" element={<ProtectedRoute adminOnly><Seguimiento /></ProtectedRoute>} />
             <Route path="/usuarios" element={<ProtectedRoute adminOnly><Usuarios /></ProtectedRoute>} />
-            <Route path="/asistencias" element={<ProtectedRoute adminOnly><Asistencias /></ProtectedRoute>} />
+            <Route path="/asistencias" element={<RedirigirAsistencias />} />
             <Route path="/reportes" element={<ProtectedRoute adminOnly><Reportes /></ProtectedRoute>} />
-            <Route path="/mentores" element={<ProtectedRoute adminOnly><Mentores /></ProtectedRoute>} />
 
             {/* Compartidas */}
             <Route path="/emprendimientos/:id" element={<EmprendimientoDetalle />} />
@@ -84,12 +89,14 @@ function App() {
             <Route path="/materiales" element={<Materiales />} />
             <Route path="/archivos" element={<Navigate to="/materiales" replace />} />
             <Route path="/mis-archivos" element={<Navigate to="/materiales" replace />} />
+            {/* Mentores unifica la gestión (admin) y Mis Mentores (emprendedor) */}
+            <Route path="/mentores" element={<Mentores />} />
+            <Route path="/mis-mentores" element={<Navigate to="/mentores" replace />} />
 
             {/* Emprendedor */}
             <Route path="/mi-emprendimiento" element={<MiEmprendimiento />} />
             <Route path="/one-pager" element={<OnePager />} />
             <Route path="/bmc" element={<Bmc />} />
-            <Route path="/mis-mentores" element={<MisMentores />} />
             <Route path="/mis-objetivos" element={<MisObjetivos />} />
             <Route path="/mi-seguimiento" element={<MiSeguimiento />} />
           </Route>

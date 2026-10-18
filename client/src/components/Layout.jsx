@@ -6,7 +6,7 @@ import ErrorBoundary from './ErrorBoundary';
 import api from '../services/api';
 import {
   LayoutDashboard, FolderKanban, Rocket, CalendarDays,
-  ClipboardList, FolderOpen, Users, BarChart3, LogOut,
+  ClipboardList, FolderOpen, Users, LogOut,
   Menu, X, ChevronDown, User, FileText, AlertCircle, LayoutGrid, GraduationCap, Target
 } from 'lucide-react';
 
@@ -54,7 +54,6 @@ const Layout = () => {
     { to: '/seguimientos', label: 'Seguimiento', icon: ClipboardList },
     { to: '/materiales', label: 'Materiales', icon: FolderOpen },
     { to: '/usuarios', label: 'Usuarios', icon: Users },
-    { to: '/asistencias', label: 'Asistencias', icon: BarChart3 },
     { to: '/reportes', label: 'Reportes e Indicadores', icon: FileText },
     { to: '/mentores', label: 'Mentores', icon: GraduationCap },
   ];
@@ -67,7 +66,7 @@ const Layout = () => {
     { to: '/sesiones', label: 'Sesiones', icon: CalendarDays },
     { to: '/mi-seguimiento', label: 'Mi Seguimiento', icon: ClipboardList },
     { to: '/mis-objetivos', label: 'Mis Objetivos', icon: Target },
-    { to: '/mis-mentores', label: 'Mentores', icon: GraduationCap },
+    { to: '/mentores', label: 'Mentores', icon: GraduationCap },
   ];
 
   const links = esAdmin ? adminLinks : emprendedorLinks;

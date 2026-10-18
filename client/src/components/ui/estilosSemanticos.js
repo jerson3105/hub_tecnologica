@@ -8,6 +8,9 @@ export const TITULO_BLOQUE_CLS = 'font-display text-xl font-semibold leading-snu
 const BOTON_BASE = 'inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-control px-4 text-sm font-medium transition-colors';
 export const BOTON_PRIMARIO_CLS = `${BOTON_BASE} bg-primary text-primary-foreground hover:bg-primary-hover`;
 export const BOTON_SECUNDARIO_CLS = `${BOTON_BASE} border border-input bg-card text-foreground hover:bg-muted`;
+// Acción destructiva o de baja (desactivar, quitar). Clase propia: sumar text-danger a la
+// secundaria no gana de forma fiable (misma propiedad).
+export const BOTON_PELIGRO_CLS = `${BOTON_BASE} border border-input bg-card text-danger hover:bg-danger-soft`;
 
 // Botón de solo icono (40px; 44px en pantallas táctiles). `tono` cambia el color al pasar el ratón.
 const ICONO_TONOS = {
