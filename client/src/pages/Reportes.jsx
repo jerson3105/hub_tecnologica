@@ -1,608 +1,276 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { FileDown, FolderKanban, Rocket, HeartHandshake, MessageSquareHeart } from 'lucide-react';
 import api from '../services/api';
-import { Download, FolderKanban, Rocket, Star, BarChart3, Users, Briefcase, TrendingUp } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { useProgramas, useEmprendimientos } from '../hooks/useQueryHooks';
-import { formatFecha } from '../utils/fechas';
-import { tipoSesion } from '../constants/sesiones';
-import { ESTADOS_PROGRAMA, ESTADOS_EMPRENDIMIENTO, estadoDe } from '../constants/estados';
-import Badge from '../components/ui/Badge';
-import Button from '../components/ui/Button';
-import EmptyState from '../components/ui/EmptyState';
-import { textoCompromisos } from '../utils/compromisos';
+import { useDescargarInforme } from '../reportes/descargarInforme';
+import TarjetaKpi from '../components/inicio/TarjetaKpi';
+import ErrorCarga from '../components/ui/ErrorCarga';
+import Skeleton from '../components/ui/Skeleton';
+import { CAMPO_CLS, FILTRO_CLS } from '../components/ui/estilos';
+import { TARJETA_CLS, TITULO_BLOQUE_CLS, BOTON_PRIMARIO_CLS } from '../components/ui/estilosSemanticos';
+import { ESTADOS_PROGRAMA } from '../constants/estados';
 
+const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
+
+// Barras horizontales sencillas (el máximo es el 100 %)
+const Barras = ({ items, color = 'bg-primary', vacio }) => {
+  if (!items.length) return <p className="text-sm text-muted-foreground">{vacio}</p>;
+  const maximo = Math.max(...items.map((i) => i.total), 1);
+  return (
+    <ul className="grid gap-2">
+      {items.map((i) => (
+        <li key={i.nombre} className="grid grid-cols-[minmax(0,9rem)_1fr_2.5rem] items-center gap-2 text-sm">
+          <span className="truncate" title={i.nombre}>{i.nombre}</span>
+          <span className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+            <span className={`block h-full rounded-full ${i.color || color}`} style={{ width: `${(i.total / maximo) * 100}%` }} />
+          </span>
+          <span className="text-right font-semibold tabular-nums">{i.total}</span>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
+// Barra apilada con leyenda (género, estados)
+const Reparto = ({ partes, etiqueta }) => {
+  const total = partes.reduce((t, p) => t + p.valor, 0);
+  return (
+    <div className="grid gap-2">
+      <div className="flex h-3 overflow-hidden rounded-full bg-muted" role="img" aria-label={`${etiqueta}: ${partes.map((p) => `${p.etiqueta} ${p.valor}`).join(', ')}`}>
+        {total > 0 && partes.filter((p) => p.valor > 0).map((p) => <span key={p.etiqueta} className={p.color} style={{ width: `${(p.valor / total) * 100}%` }} />)}
+      </div>
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted-foreground" aria-hidden="true">
+        {partes.map((p) => (
+          <li key={p.etiqueta} className="inline-flex items-center gap-1.5">
+            <span className={`size-2.5 rounded-full ${p.color}`} />{p.etiqueta} <span className="font-semibold text-foreground tabular-nums">{p.valor}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+const Bloque = ({ titulo, children, className = '' }) => (
+  <section className={`${TARJETA_CLS} grid content-start gap-4 p-5 ${className}`}>
+    <h3 className="text-sm font-semibold text-muted-foreground">{titulo}</h3>
+    {children}
+  </section>
+);
+
+// Indicadores de impacto en pantalla (los mismos datos que el informe de impacto)
+const Panorama = ({ datos, alcanceTodos }) => {
+  const { emprendimientos: e, personas: p } = datos;
+  return (
+    <div className="@container grid gap-4">
+      <dl className="grid grid-cols-2 gap-3 sm:gap-4 @3xl:grid-cols-3 @5xl:grid-cols-6">
+        <TarjetaKpi indice={0} titulo="Emprendimientos acompañados" valor={e.activos + e.graduados} nota={`${e.activos} activos · ${e.graduados} graduados`} />
+        <TarjetaKpi indice={1} titulo="Personas en los equipos" valor={p.total} />
+        <TarjetaKpi indice={2} titulo="Mujeres" valor={p.porcentajeMujeres} sufijo=" %" nota={`${p.mujeres} de ${p.total}`} />
+        <TarjetaKpi indice={3} titulo="Mujeres líderes" valor={p.mujeresLideres} nota={p.lideres ? `${p.porcentajeMujeresLideres} % de ${p.lideres} líderes` : null} />
+        <TarjetaKpi indice={4} titulo="Empleos generados" valor={datos.empleos} />
+        <TarjetaKpi indice={5} titulo="Graduados" valor={e.graduados} nota={e.retirados ? plural(e.retirados, 'retirado', 'retirados') : null} />
+      </dl>
+      <div className="grid gap-4 @3xl:grid-cols-3">
+        <Bloque titulo="Personas">
+          <Reparto etiqueta="Género" partes={[
+            { etiqueta: 'Mujeres', valor: p.mujeres, color: 'bg-programa-solid' },
+            { etiqueta: 'Hombres', valor: p.hombres, color: 'bg-primary' },
+            ...(p.otro ? [{ etiqueta: 'Otro', valor: p.otro, color: 'bg-warning-solid' }] : []),
+            ...(p.sinDato ? [{ etiqueta: 'Sin dato', valor: p.sinDato, color: 'bg-border' }] : [])
+          ]} />
+          <Barras items={p.edades.map((x) => ({ nombre: x.rango, total: x.total, color: x.rango === 'Sin dato' ? 'bg-border' : 'bg-azul-solid' }))} vacio="Sin datos de edad." />
+        </Bloque>
+        <Bloque titulo="Sectores">
+          <Barras items={datos.sectores.slice(0, 6)} color="bg-warning-solid" vacio="Sin sectores registrados." />
+          {datos.sectores.length > 6 && <p className="text-[13px] text-muted-foreground">Y {plural(datos.sectores.length - 6, 'sector más', 'sectores más')} en el informe.</p>}
+        </Bloque>
+        <Bloque titulo="Territorio (departamento)">
+          <Barras items={p.departamentos.slice(0, 6)} color="bg-success-solid" vacio="Sin datos de ubicación." />
+        </Bloque>
+      </div>
+      {alcanceTodos && datos.porPrograma.length > 1 && (
+        <section className={`${TARJETA_CLS} overflow-hidden`}>
+          <h3 className="px-5 pt-4 text-sm font-semibold text-muted-foreground">Por programa</h3>
+          <div className="overflow-x-auto">
+            <table className="mt-2 w-full min-w-[34rem] text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                  <th scope="col" className="px-5 py-2 font-semibold">Programa</th>
+                  {['Emprend.', 'Graduados', 'Personas', 'Mujeres', 'Empleos'].map((t) => <th key={t} scope="col" className="px-3 py-2 text-right font-semibold">{t}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {datos.porPrograma.map((x) => (
+                  <tr key={x.id} className="border-b border-border last:border-b-0">
+                    <th scope="row" className="px-5 py-2.5 text-left font-medium">
+                      {x.nombre} <span className="font-normal text-muted-foreground">· {ESTADOS_PROGRAMA[x.estado]?.label}</span>
+                    </th>
+                    {[x.total - x.retirados, x.graduados, x.personas, x.mujeres, x.empleos].map((v, i) => <td key={i} className="px-3 py-2.5 text-right tabular-nums">{v}</td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+    </div>
+  );
+};
+
+// Tarjeta de un informe PDF: qué incluye, para quién, qué alcance y el botón de descarga
+const TarjetaInforme = ({ icono, titulo, para, incluye, etiquetaSelector, selector, onDescargar, cargando, deshabilitado, indice }) => {
+  const Icono = icono;
+  return (
+    <article className={`${TARJETA_CLS} animate-enter escalonado flex flex-col gap-4 p-5`} style={{ '--i': indice }}>
+      <div className="flex items-start gap-3">
+        <span className="grid size-10 shrink-0 place-items-center rounded-control bg-info-soft text-info-soft-foreground"><Icono size={20} aria-hidden="true" /></span>
+        <div className="grid gap-0.5">
+          <h3 className="font-display text-lg font-semibold leading-snug">{titulo}</h3>
+          <p className="text-[13px] text-muted-foreground">{para}</p>
+        </div>
+      </div>
+      <p className="text-sm">{incluye}</p>
+      <div className="mt-auto grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+        <label className="grid gap-1.5 text-sm font-medium">
+          {etiquetaSelector}
+          {selector}
+        </label>
+        <button type="button" onClick={onDescargar} disabled={deshabilitado || cargando} className={`${BOTON_PRIMARIO_CLS} disabled:cursor-not-allowed disabled:opacity-60`}>
+          <FileDown size={16} aria-hidden="true" className={cargando ? 'animate-pulse' : ''} />
+          {cargando ? 'Generando…' : 'Descargar PDF'}
+        </button>
+      </div>
+    </article>
+  );
+};
+
+// Reportes: panorama de impacto en pantalla y cuatro informes en PDF con la marca
 const Reportes = () => {
-  const { data: programas = [], isLoading: l1 } = useProgramas();
-  const { data: emprendimientos = [], isLoading: l2 } = useEmprendimientos();
-  const { data: indicadores, isLoading: l3 } = useQuery({
-    queryKey: ['indicadores'],
-    queryFn: () => api.get('/indicadores').then(r => r.data)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const alcance = searchParams.get('programa') || '';
+  const { data: programas = [] } = useProgramas();
+  const { data: emprendimientos = [] } = useEmprendimientos();
+  const { data: impacto, isLoading, isError, refetch } = useQuery({
+    queryKey: ['indicadores', alcance],
+    queryFn: () => api.get('/indicadores', { params: alcance ? { programa_id: alcance } : {} }).then((r) => r.data)
   });
-  const cargando = l1 || l2 || l3;
-  const [generando, setGenerando] = useState(null);
+  const { descargar, generando } = useDescargarInforme();
+  const enCurso = programas.find((p) => p.estado === 'en_curso') || programas[0];
+  const [programaInforme, setProgramaInforme] = useState('');
+  const [empInforme, setEmpInforme] = useState('');
+  const [alcanceImpacto, setAlcanceImpacto] = useState('');
+  const [alcanceSatisfaccion, setAlcanceSatisfaccion] = useState('');
+  const programaElegido = programaInforme || (enCurso ? String(enCurso.id) : '');
 
-  const generarPDFPrograma = async (programa) => {
-    setGenerando(`prog-${programa.id}`);
-    try {
-      const [sesRes, npsRes] = await Promise.all([
-        api.get('/sesiones', { params: { programa_id: programa.id } }),
-        api.get(`/nps/programa/${programa.id}`)
-      ]);
-      const sesiones = sesRes.data.sesiones || [];
-      const nps = npsRes.data.nps || { score: 0, total: 0, promotores: 0, pasivos: 0, detractores: 0 };
-      const emps = emprendimientos.filter(e => e.programa_id === programa.id);
-
-      const { default: jsPDF } = await import('jspdf');
-      const doc = new jsPDF('p', 'mm', 'a4');
-      const w = doc.internal.pageSize.getWidth();
-      const margin = 15;
-      const contentW = w - margin * 2;
-
-      // Header
-      doc.setFillColor(30, 58, 95);
-      doc.rect(0, 0, w, 35, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(20);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Reporte: ${programa.nombre}`, w / 2, 16, { align: 'center' });
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Generado el ${formatFecha(new Date())} • Estado: ${programa.estado === 'en_curso' ? 'En Curso' : programa.estado}`, w / 2, 25, { align: 'center' });
-
-      let y = 45;
-
-      // Stats row
-      const statsW = contentW / 3;
-      const drawStat = (label, value, x) => {
-        doc.setFillColor(245, 247, 250);
-        doc.roundedRect(x, y, statsW - 4, 18, 2, 2, 'F');
-        doc.setTextColor(30, 58, 95);
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text(String(value), x + (statsW - 4) / 2, y + 9, { align: 'center' });
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(120, 120, 120);
-        doc.text(label, x + (statsW - 4) / 2, y + 15, { align: 'center' });
-      };
-      drawStat('Emprendimientos', emps.length, margin);
-      drawStat('Sesiones', sesiones.length, margin + statsW);
-      drawStat('NPS Score', nps.score || 0, margin + statsW * 2);
-      y += 26;
-
-      // Emprendimientos
-      if (emps.length > 0) {
-        doc.setFillColor(30, 58, 95);
-        doc.roundedRect(margin, y, contentW, 7, 1.5, 1.5, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        doc.text('EMPRENDIMIENTOS', margin + 4, y + 5);
-        y += 12;
-        doc.setTextColor(50, 50, 50);
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        emps.forEach(emp => {
-          if (y > 270) { doc.addPage(); y = 20; }
-          doc.setFont('helvetica', 'bold');
-          doc.text(`• ${emp.nombre}`, margin + 4, y);
-          doc.setFont('helvetica', 'normal');
-          doc.text(` — ${emp.estado || 'activo'} ${emp.sector ? '• ' + emp.sector : ''}`, margin + 4 + doc.getTextWidth(`• ${emp.nombre} `), y);
-          y += 5;
-        });
-        y += 6;
-      }
-
-      // Sesiones
-      if (sesiones.length > 0) {
-        if (y > 250) { doc.addPage(); y = 20; }
-        doc.setFillColor(30, 58, 95);
-        doc.roundedRect(margin, y, contentW, 7, 1.5, 1.5, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        doc.text('SESIONES', margin + 4, y + 5);
-        y += 12;
-        doc.setTextColor(50, 50, 50);
-        doc.setFontSize(8);
-        sesiones.forEach(ses => {
-          if (y > 270) { doc.addPage(); y = 20; }
-          doc.setFont('helvetica', 'bold');
-          doc.text(`• ${ses.titulo}`, margin + 4, y);
-          doc.setFont('helvetica', 'normal');
-          const fecha = formatFecha(ses.fecha);
-          const tipo = tipoSesion(ses.tipo).label;
-          doc.text(` — ${fecha} • ${tipo}`, margin + 4 + doc.getTextWidth(`• ${ses.titulo} `), y);
-          y += 5;
-        });
-        y += 6;
-      }
-
-      // NPS
-      if (nps.total > 0) {
-        if (y > 250) { doc.addPage(); y = 20; }
-        doc.setFillColor(45, 85, 140);
-        doc.roundedRect(margin, y, contentW, 7, 1.5, 1.5, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        doc.text('RESUMEN NPS', margin + 4, y + 5);
-        y += 12;
-        doc.setTextColor(50, 50, 50);
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Total de respuestas: ${nps.total}`, margin + 4, y); y += 5;
-        doc.text(`NPS Score: ${nps.score}`, margin + 4, y); y += 5;
-        doc.text(`Promotores (9-10): ${nps.promotores}  |  Pasivos (7-8): ${nps.pasivos}  |  Detractores (0-6): ${nps.detractores}`, margin + 4, y);
-      }
-
-      // Footer
-      const pageH = doc.internal.pageSize.getHeight();
-      doc.setFillColor(30, 58, 95);
-      doc.rect(0, pageH - 8, w, 8, 'F');
-      doc.setTextColor(200, 200, 200);
-      doc.setFontSize(7);
-      doc.text(`Reporte de Programa — ${programa.nombre} — ${formatFecha(new Date())}`, w / 2, pageH - 3, { align: 'center' });
-
-      doc.save(`Reporte_${programa.nombre.replace(/\s+/g, '_')}.pdf`);
-      toast.success('Reporte generado');
-    } catch (error) {
-      console.error(error);
-      toast.error('Error al generar reporte');
-    } finally {
-      setGenerando(null);
-    }
-  };
-
-  const generarPDFEmprendimiento = async (emp) => {
-    setGenerando(`emp-${emp.id}`);
-    try {
-      const [empRes, opRes] = await Promise.all([
-        api.get(`/emprendimientos/${emp.id}`),
-        api.get(`/one-pager/${emp.id}`)
-      ]);
-      const empDetalle = empRes.data.emprendimiento;
-      const onePager = opRes.data.onePager;
-      const opCompleto = opRes.data.completo;
-
-      const { default: jsPDF } = await import('jspdf');
-      const doc = new jsPDF('p', 'mm', 'a4');
-      const w = doc.internal.pageSize.getWidth();
-      const margin = 15;
-      const contentW = w - margin * 2;
-
-      // Header
-      doc.setFillColor(30, 58, 95);
-      doc.rect(0, 0, w, 35, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(20);
-      doc.setFont('helvetica', 'bold');
-      doc.text(empDetalle.nombre, w / 2, 16, { align: 'center' });
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      const sub = [empDetalle.programa?.nombre, empDetalle.sector, empDetalle.estado].filter(Boolean).join(' • ');
-      doc.text(sub, w / 2, 25, { align: 'center' });
-
-      let y = 45;
-
-      // Integrantes
-      if (empDetalle.integrantes?.length > 0) {
-        doc.setFillColor(30, 58, 95);
-        doc.roundedRect(margin, y, contentW, 7, 1.5, 1.5, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        doc.text('EQUIPO', margin + 4, y + 5);
-        y += 12;
-        doc.setTextColor(50, 50, 50);
-        doc.setFontSize(8);
-        empDetalle.integrantes.forEach(int => {
-          const nombre = `${int.usuario?.nombre || ''} ${int.usuario?.apellido || ''}`.trim();
-          const rol = int.rol_emprendimiento || (int.es_lider ? 'Líder' : 'Integrante');
-          doc.setFont('helvetica', 'bold');
-          doc.text(`• ${nombre}`, margin + 4, y);
-          doc.setFont('helvetica', 'normal');
-          doc.text(` — ${rol} (${int.usuario?.email || ''})`, margin + 4 + doc.getTextWidth(`• ${nombre} `), y);
-          y += 5;
-        });
-        y += 6;
-      }
-
-      // One Pager status
-      doc.setFillColor(45, 85, 140);
-      doc.roundedRect(margin, y, contentW, 7, 1.5, 1.5, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.text('ONE PAGER', margin + 4, y + 5);
-      y += 12;
-      doc.setTextColor(50, 50, 50);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      if (onePager) {
-        doc.text(`Estado: ${opCompleto ? 'Completo' : 'Incompleto'} | Etapa: ${onePager.estado_proyecto || '-'}`, margin + 4, y); y += 5;
-        if (onePager.descripcion) {
-          const lines = doc.splitTextToSize(`Descripción: ${onePager.descripcion}`, contentW - 8);
-          doc.text(lines, margin + 4, y); y += lines.length * 4;
-        }
-        if (onePager.problematica) {
-          const lines = doc.splitTextToSize(`Problemática: ${onePager.problematica}`, contentW - 8);
-          doc.text(lines, margin + 4, y); y += lines.length * 4;
-        }
-        if (onePager.solucion) {
-          const lines = doc.splitTextToSize(`Solución: ${onePager.solucion}`, contentW - 8);
-          doc.text(lines, margin + 4, y); y += lines.length * 4;
-        }
-      } else {
-        doc.text('El emprendedor aún no ha completado su One Pager.', margin + 4, y); y += 5;
-      }
-      y += 6;
-
-      // Seguimientos
-      if (empDetalle.seguimientos?.length > 0) {
-        if (y > 240) { doc.addPage(); y = 20; }
-        doc.setFillColor(30, 58, 95);
-        doc.roundedRect(margin, y, contentW, 7, 1.5, 1.5, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`SEGUIMIENTOS (${empDetalle.seguimientos.length})`, margin + 4, y + 5);
-        y += 12;
-        doc.setTextColor(50, 50, 50);
-        doc.setFontSize(8);
-        empDetalle.seguimientos.forEach(seg => {
-          if (y > 265) { doc.addPage(); y = 20; }
-          const fecha = seg.sesion?.fecha ? formatFecha(seg.sesion.fecha) : '';
-          const titulo = seg.sesion?.titulo || 'Sin sesión';
-          doc.setFont('helvetica', 'bold');
-          doc.text(`${titulo} (${fecha})`, margin + 4, y); y += 4;
-          doc.setFont('helvetica', 'normal');
-          if (seg.realizado) {
-            const lines = doc.splitTextToSize(`Realizado: ${seg.realizado}`, contentW - 8);
-            doc.text(lines, margin + 8, y); y += lines.length * 3.5;
-          }
-          const compromisosTexto = textoCompromisos(seg);
-          if (compromisosTexto) {
-            const lines = doc.splitTextToSize(`Compromisos: ${compromisosTexto}`, contentW - 8);
-            doc.text(lines, margin + 8, y); y += lines.length * 3.5;
-          }
-          y += 3;
-        });
-      }
-
-      // Footer
-      const pageH = doc.internal.pageSize.getHeight();
-      doc.setFillColor(30, 58, 95);
-      doc.rect(0, pageH - 8, w, 8, 'F');
-      doc.setTextColor(200, 200, 200);
-      doc.setFontSize(7);
-      doc.text(`Reporte — ${empDetalle.nombre} — ${formatFecha(new Date())}`, w / 2, pageH - 3, { align: 'center' });
-
-      doc.save(`Reporte_${empDetalle.nombre.replace(/\s+/g, '_')}.pdf`);
-      toast.success('Reporte generado');
-    } catch (error) {
-      console.error(error);
-      toast.error('Error al generar reporte');
-    } finally {
-      setGenerando(null);
-    }
-  };
-
-  const generarPDFNps = async () => {
-    setGenerando('nps');
-    try {
-      const [npsResRes, npsPromRes, sesRes] = await Promise.all([
-        api.get('/nps/resumen'),
-        api.get('/nps/promedios'),
-        api.get('/sesiones')
-      ]);
-      const resumen = npsResRes.data.resumen || [];
-      const promedios = npsPromRes.data.promedios || {};
-      const sesiones = sesRes.data.sesiones || [];
-
-      const { default: jsPDF } = await import('jspdf');
-      const doc = new jsPDF('p', 'mm', 'a4');
-      const w = doc.internal.pageSize.getWidth();
-      const margin = 15;
-      const contentW = w - margin * 2;
-
-      // Header
-      doc.setFillColor(30, 58, 95);
-      doc.rect(0, 0, w, 35, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(20);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Reporte NPS General', w / 2, 16, { align: 'center' });
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Generado el ${formatFecha(new Date())}`, w / 2, 25, { align: 'center' });
-
-      let y = 45;
-
-      // NPS por programa
-      doc.setFillColor(30, 58, 95);
-      doc.roundedRect(margin, y, contentW, 7, 1.5, 1.5, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.text('NPS POR PROGRAMA', margin + 4, y + 5);
-      y += 12;
-
-      if (resumen.length > 0) {
-        doc.setFontSize(8);
-        resumen.forEach(item => {
-          doc.setTextColor(50, 50, 50);
-          doc.setFont('helvetica', 'bold');
-          doc.text(item.programa_nombre, margin + 4, y);
-          doc.setFont('helvetica', 'normal');
-          doc.text(`  NPS Score: ${item.nps_score}  |  Respuestas: ${item.total_respuestas}`, margin + 4 + doc.getTextWidth(item.programa_nombre + ' '), y);
-          y += 6;
-        });
-      } else {
-        doc.setTextColor(120, 120, 120);
-        doc.setFontSize(8);
-        doc.text('No hay datos NPS disponibles.', margin + 4, y);
-        y += 6;
-      }
-      y += 6;
-
-      // NPS por sesión
-      const sesionesConNps = sesiones.filter(s => promedios[s.id]);
-      if (sesionesConNps.length > 0) {
-        doc.setFillColor(45, 85, 140);
-        doc.roundedRect(margin, y, contentW, 7, 1.5, 1.5, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        doc.text('NPS POR SESIÓN', margin + 4, y + 5);
-        y += 12;
-
-        // Table header
-        doc.setFontSize(7);
-        doc.setTextColor(120, 120, 120);
-        doc.text('Sesión', margin + 4, y);
-        doc.text('Tipo', margin + 90, y);
-        doc.text('Fecha', margin + 115, y);
-        doc.text('Promedio', margin + 145, y);
-        doc.text('Resp.', margin + 165, y);
-        y += 2;
-        doc.setDrawColor(200, 200, 200);
-        doc.line(margin, y, margin + contentW, y);
-        y += 4;
-
-        doc.setFontSize(8);
-        doc.setTextColor(50, 50, 50);
-        sesionesConNps.forEach(ses => {
-          if (y > 270) { doc.addPage(); y = 20; }
-          doc.setFont('helvetica', 'normal');
-          const titulo = ses.titulo.length > 40 ? ses.titulo.substring(0, 37) + '...' : ses.titulo;
-          doc.text(titulo, margin + 4, y);
-          doc.text(tipoSesion(ses.tipo).label, margin + 90, y);
-          doc.text(formatFecha(ses.fecha), margin + 115, y);
-          doc.setFont('helvetica', 'bold');
-          doc.text(`${promedios[ses.id].promedio}/10`, margin + 145, y);
-          doc.setFont('helvetica', 'normal');
-          doc.text(String(promedios[ses.id].total), margin + 165, y);
-          y += 5;
-        });
-      }
-
-      // Footer
-      const pageH = doc.internal.pageSize.getHeight();
-      doc.setFillColor(30, 58, 95);
-      doc.rect(0, pageH - 8, w, 8, 'F');
-      doc.setTextColor(200, 200, 200);
-      doc.setFontSize(7);
-      doc.text(`Reporte NPS General — ${formatFecha(new Date())}`, w / 2, pageH - 3, { align: 'center' });
-
-      doc.save(`Reporte_NPS_${new Date().toISOString().split('T')[0]}.pdf`);
-      toast.success('Reporte NPS generado');
-    } catch (error) {
-      console.error(error);
-      toast.error('Error al generar reporte');
-    } finally {
-      setGenerando(null);
-    }
-  };
-
-  if (cargando) {
-    return <div className="flex items-center justify-center h-64" role="status" aria-label="Cargando"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-cyan"></div></div>;
-  }
+  const opcionesProgramas = programas.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>);
+  const porPrograma = programas
+    .map((p) => ({ programa: p, emps: emprendimientos.filter((e) => e.programa_id === p.id).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')) }))
+    .filter((g) => g.emps.length);
+  const selectorAlcance = (valor, cambiar) => (
+    <select value={valor} onChange={(e) => cambiar(e.target.value)} className={CAMPO_CLS}>
+      <option value="">Todos los programas</option>
+      {opcionesProgramas}
+    </select>
+  );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-brand-dark flex items-center gap-2">
-          <div className="p-2 bg-brand-purple/10 rounded-xl"><BarChart3 size={22} className="text-brand-purple" aria-hidden="true" /></div>
-          Reportes e Indicadores
-        </h1>
-        <p className="text-gray-500 mt-1 sm:ml-12">Indicadores clave y reportes PDF del sistema</p>
-      </div>
+    <div className="mx-auto grid max-w-page grid-cols-1 gap-4 lg:gap-6">
+      <header className="animate-enter">
+        <p className="eyebrow">Análisis</p>
+        <h1 className="mt-1 font-display text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">Reportes</h1>
+        <p className="mt-1 text-muted-foreground">Los indicadores de la incubadora y los informes en PDF para compartir.</p>
+      </header>
 
-      {/* Sección Indicadores */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-          <div className="p-1.5 bg-brand-purple/10 rounded-lg"><TrendingUp size={18} className="text-brand-purple" aria-hidden="true" /></div>
-          <h2 className="text-lg font-semibold text-brand-dark">Indicadores</h2>
-        </div>
-        <div className="p-5 space-y-6">
-          {/* Totales */}
+      <section aria-labelledby="t-panorama" className="grid gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Totales Generales</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-gradient-to-br from-brand-cyan/10 to-brand-cyan/5 rounded-xl p-4 border border-brand-cyan/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <Rocket size={16} className="text-brand-cyan-ink shrink-0" aria-hidden="true" />
-                  <span className="text-xs font-semibold text-gray-600">Emprendimientos</span>
-                </div>
-                <p className="text-2xl font-bold text-brand-dark">{indicadores?.totales?.emprendimientos || 0}</p>
-              </div>
-              <div className="bg-gradient-to-br from-brand-purple/10 to-brand-purple/5 rounded-xl p-4 border border-brand-purple/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users size={16} className="text-brand-purple shrink-0" aria-hidden="true" />
-                  <span className="text-xs font-semibold text-gray-600">Mujeres Líderes</span>
-                </div>
-                <p className="text-2xl font-bold text-brand-dark">{indicadores?.totales?.mujeres_lideres || 0}</p>
-              </div>
-              <div className="bg-gradient-to-br from-pink-100 to-pink-50 rounded-xl p-4 border border-pink-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users size={16} className="text-pink-500 shrink-0" aria-hidden="true" />
-                  <span className="text-xs font-semibold text-gray-600">Mujeres Emprendedoras</span>
-                </div>
-                <p className="text-2xl font-bold text-brand-dark">{indicadores?.totales?.mujeres_emprendedoras || 0}</p>
-              </div>
-              <div className="bg-gradient-to-br from-brand-green/10 to-brand-green/5 rounded-xl p-4 border border-brand-green/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <Briefcase size={16} className="text-brand-green-ink shrink-0" aria-hidden="true" />
-                  <span className="text-xs font-semibold text-gray-600">Empleos Generados</span>
-                </div>
-                <p className="text-2xl font-bold text-brand-dark">{indicadores?.totales?.empleos_generados || 0}</p>
-              </div>
-            </div>
+            <h2 id="t-panorama" className={TITULO_BLOQUE_CLS}>Panorama</h2>
+            <p className="text-[13px] text-muted-foreground">Emprendimientos, personas y empleo{impacto ? ` · datos al ${impacto.hoy.split('-').reverse().join('/')}` : ''}.</p>
           </div>
-
-          {/* Por Programa */}
-          {indicadores?.por_programa?.length > 0 && (
-            <div>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Por Programa</p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <caption className="sr-only">Indicadores por programa</caption>
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      <th scope="col" className="text-left py-2 px-3 font-semibold text-gray-600 text-xs">Programa</th>
-                      <th scope="col" className="text-center py-2 px-3 font-semibold text-gray-600 text-xs">Emprendimientos</th>
-                      <th scope="col" className="text-center py-2 px-3 font-semibold text-gray-600 text-xs hidden md:table-cell">Mujeres Líderes</th>
-                      <th scope="col" className="text-center py-2 px-3 font-semibold text-gray-600 text-xs hidden md:table-cell">Mujeres Emprend.</th>
-                      <th scope="col" className="text-center py-2 px-3 font-semibold text-gray-600 text-xs hidden md:table-cell">Empleos</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {indicadores.por_programa.map(prog => {
-                      const estado = estadoDe(ESTADOS_PROGRAMA, prog.programa_estado);
-                      return (
-                        <tr key={prog.programa_id} className="hover:bg-brand-cyan/5 transition-colors">
-                          <td className="py-2.5 px-3">
-                            <span className="font-medium text-brand-dark">{prog.programa_nombre}</span>
-                            <Badge tono={estado.tono} forma="tag" className="ml-2">{estado.label}</Badge>
-                            {/* Resumen de las columnas ocultas en pantallas pequeñas */}
-                            <p className="text-xs text-gray-500 mt-1 md:hidden">
-                              Mujeres líderes: {prog.mujeres_lideres} · Mujeres emprend.: {prog.mujeres_emprendedoras} · Empleos: {prog.empleos_generados}
-                            </p>
-                          </td>
-                          <td className="py-2.5 px-3 text-center font-semibold text-brand-dark">{prog.emprendimientos}</td>
-                          <td className="py-2.5 px-3 text-center font-semibold text-brand-purple hidden md:table-cell">{prog.mujeres_lideres}</td>
-                          <td className="py-2.5 px-3 text-center font-semibold text-pink-600 hidden md:table-cell">{prog.mujeres_emprendedoras}</td>
-                          <td className="py-2.5 px-3 text-center font-semibold text-brand-green-ink hidden md:table-cell">{prog.empleos_generados}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          <select aria-label="Alcance de los indicadores" value={alcance} onChange={(e) => setSearchParams(e.target.value ? { programa: e.target.value } : {}, { replace: true })} className={FILTRO_CLS}>
+            <option value="">Todos los programas</option>
+            {opcionesProgramas}
+          </select>
         </div>
-      </div>
-
-      {/* Reporte NPS General */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="h-1 bg-gradient-to-r from-amber-400 to-amber-500"></div>
-        <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-amber-100 p-3 rounded-xl shrink-0">
-              <Star size={22} className="text-amber-500" aria-hidden="true" />
-            </div>
-            <div>
-              <h2 className="font-bold text-brand-dark">Reporte NPS General</h2>
-              <p className="text-sm text-gray-500">Resumen de evaluaciones NPS por programa y sesión</p>
-            </div>
-          </div>
-          <Button variante="amber" icono={Download} cargando={generando === 'nps'} onClick={generarPDFNps}>
-            Generar PDF
-          </Button>
-        </div>
-      </div>
-
-      {/* Reportes por Programa */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-          <div className="p-1.5 bg-brand-cyan/10 rounded-lg"><FolderKanban size={18} className="text-brand-cyan-ink" aria-hidden="true" /></div>
-          <h2 className="text-lg font-semibold text-brand-dark">Reportes por Programa</h2>
-        </div>
-        {programas.length === 0 ? (
-          <EmptyState icono={FolderKanban} tono="cyan" compacto titulo="No hay programas registrados" sinMarco />
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {programas.map(prog => {
-              const estado = estadoDe(ESTADOS_PROGRAMA, prog.estado);
-              return (
-                <div key={prog.id} className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-brand-cyan/5 transition-colors">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-brand-dark text-sm">{prog.nombre}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      <Badge tono={estado.tono} forma="tag" className="mr-1.5">{estado.label}</Badge>
-                      {prog.emprendimientos?.length || 0} emprendimientos
-                    </p>
-                  </div>
-                  <Button
-                    tamanio="sm"
-                    icono={Download}
-                    cargando={generando === `prog-${prog.id}`}
-                    onClick={() => generarPDFPrograma(prog)}
-                    aria-label={`Generar PDF de ${prog.nombre}`}
-                    className="shrink-0"
-                  >
-                    PDF
-                  </Button>
-                </div>
-              );
-            })}
+        {isLoading && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3" role="status" aria-label="Cargando indicadores">
+            {[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-28 rounded-card" />)}
           </div>
         )}
-      </div>
+        {isError && !impacto && <div className={TARJETA_CLS}><ErrorCarga mensaje="No se pudieron cargar los indicadores." onReintentar={refetch} /></div>}
+        {impacto && <Panorama datos={impacto} alcanceTodos={!alcance} />}
+      </section>
 
-      {/* Reportes por Emprendimiento */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-          <div className="p-1.5 bg-brand-green/10 rounded-lg"><Rocket size={18} className="text-brand-green-ink" aria-hidden="true" /></div>
-          <h2 className="text-lg font-semibold text-brand-dark">Reportes por Emprendimiento</h2>
+      <section aria-labelledby="t-informes" className="grid gap-4">
+        <div>
+          <h2 id="t-informes" className={TITULO_BLOQUE_CLS}>Informes en PDF</h2>
+          <p className="text-[13px] text-muted-foreground">Con el logo y los colores del HUB, listos para enviar o imprimir.</p>
         </div>
-        {emprendimientos.length === 0 ? (
-          <EmptyState icono={Rocket} tono="green" compacto titulo="No hay emprendimientos registrados" sinMarco />
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {emprendimientos.map(emp => {
-              const estado = estadoDe(ESTADOS_EMPRENDIMIENTO, emp.estado);
-              return (
-                <div key={emp.id} className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-brand-cyan/5 transition-colors">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-brand-dark text-sm">{emp.nombre}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {emp.programa?.nombre || '-'}
-                      <span className="text-gray-500 mx-1.5" aria-hidden="true">·</span>
-                      <Badge tono={estado.tono} forma="tag">{estado.label}</Badge>
-                    </p>
-                  </div>
-                  <Button
-                    variante="success"
-                    tamanio="sm"
-                    icono={Download}
-                    cargando={generando === `emp-${emp.id}`}
-                    onClick={() => generarPDFEmprendimiento(emp)}
-                    aria-label={`Generar PDF de ${emp.nombre}`}
-                    className="shrink-0"
-                  >
-                    PDF
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <TarjetaInforme
+            indice={0}
+            icono={FolderKanban}
+            titulo="Informe de programa"
+            para="Para dirección o el financiador del programa."
+            incluye="Avance o cierre: indicadores, puntos de atención, cartera por emprendimiento (asistencia, compromisos, OKR, última reunión), sesiones y satisfacción."
+            etiquetaSelector="Programa"
+            selector={(
+              <select value={programaElegido} onChange={(e) => setProgramaInforme(e.target.value)} className={CAMPO_CLS}>
+                {programas.length === 0 && <option value="">No hay programas</option>}
+                {opcionesProgramas}
+              </select>
+            )}
+            onDescargar={() => descargar('programa', programaElegido)}
+            cargando={generando('programa', programaElegido)}
+            deshabilitado={!programaElegido}
+          />
+          <TarjetaInforme
+            indice={1}
+            icono={Rocket}
+            titulo="Ficha del emprendimiento"
+            para="Para el propio equipo, un mentor o un jurado de graduación."
+            incluye="One Pager, equipo, OKR con su avance, compromisos abiertos y vencidos, últimas sesiones registradas y asistencia."
+            etiquetaSelector="Emprendimiento"
+            selector={(
+              <select value={empInforme} onChange={(e) => setEmpInforme(e.target.value)} className={CAMPO_CLS}>
+                <option value="">Elegir emprendimiento</option>
+                {porPrograma.map((g) => (
+                  <optgroup key={g.programa.id} label={g.programa.nombre}>
+                    {g.emps.map((e) => <option key={e.id} value={e.id}>{e.nombre}{e.estado !== 'activo' ? ` (${e.estado})` : ''}</option>)}
+                  </optgroup>
+                ))}
+              </select>
+            )}
+            onDescargar={() => descargar('emprendimiento', empInforme)}
+            cargando={generando('emprendimiento', empInforme)}
+            deshabilitado={!empInforme}
+          />
+          <TarjetaInforme
+            indice={2}
+            icono={HeartHandshake}
+            titulo="Impacto para aliados"
+            para="Para aliados, financiadores y memorias anuales."
+            incluye="Emprendimientos acompañados y graduados, personas por género, edad y territorio, mujeres líderes, empleos y sectores; con desglose por programa."
+            etiquetaSelector="Alcance"
+            selector={selectorAlcance(alcanceImpacto, setAlcanceImpacto)}
+            onDescargar={() => descargar('impacto', alcanceImpacto)}
+            cargando={generando('impacto', alcanceImpacto)}
+          />
+          <TarjetaInforme
+            indice={3}
+            icono={MessageSquareHeart}
+            titulo="Satisfacción y asistencia"
+            para="Para el equipo técnico: mejorar las sesiones y a quién llamar."
+            incluye="NPS por tipo de evaluación y por sesión, comentarios anónimos y áreas de mejora, asistencia por emprendimiento y por persona."
+            etiquetaSelector="Alcance"
+            selector={selectorAlcance(alcanceSatisfaccion, setAlcanceSatisfaccion)}
+            onDescargar={() => descargar('satisfaccion', alcanceSatisfaccion)}
+            cargando={generando('satisfaccion', alcanceSatisfaccion)}
+          />
+        </div>
+      </section>
     </div>
   );
 };

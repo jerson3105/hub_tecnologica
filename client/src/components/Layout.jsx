@@ -54,7 +54,7 @@ const Layout = () => {
     { to: '/seguimientos', label: 'Seguimiento', icon: ClipboardList },
     { to: '/materiales', label: 'Materiales', icon: FolderOpen },
     { to: '/usuarios', label: 'Usuarios', icon: Users },
-    { to: '/reportes', label: 'Reportes e Indicadores', icon: FileText },
+    { to: '/reportes', label: 'Reportes', icon: FileText },
     { to: '/mentores', label: 'Mentores', icon: GraduationCap },
   ];
 

@@ -7,5 +7,6 @@ router.use(verificarToken);
 router.use(esAdmin);
 
 router.get('/', indicadoresController.obtenerIndicadores);
+router.get('/satisfaccion', indicadoresController.obtenerSatisfaccion);
 
 module.exports = router;
