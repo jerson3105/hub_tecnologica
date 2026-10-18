@@ -3,6 +3,7 @@ import api from '../services/api';
 import { ClipboardCheck, Check, X, Save, Users, UserCheck, UserX, CheckCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { useProgramas, useEmprendimientos } from '../hooks/useQueryHooks';
 import { formatFecha } from '../utils/fechas';
 import Badge from '../components/ui/Badge';
@@ -18,7 +19,9 @@ const programasDeSesion = (sesion) => {
 };
 
 const Asistencias = () => {
-  const [sesionSeleccionada, setSesionSeleccionada] = useState('');
+  // ?sesion= preselecciona la sesión (enlace «Tomar asistencia» del Inicio)
+  const [searchParams] = useSearchParams();
+  const [sesionSeleccionada, setSesionSeleccionada] = useState(() => searchParams.get('sesion') || '');
   const [filtroPrograma, setFiltroPrograma] = useState('');
   const [filtroEmprendimiento, setFiltroEmprendimiento] = useState('');
   const [guardando, setGuardando] = useState(false);

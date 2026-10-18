@@ -1,6 +1,10 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+// Fuentes del sistema visual (variables, servidas desde el propio paquete)
+import '@fontsource-variable/geist'
+import '@fontsource-variable/bricolage-grotesque/opsz.css'
+import '@fontsource-variable/geist-mono'
 import './index.css'
 import App from './App.jsx'
 

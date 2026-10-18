@@ -25,6 +25,7 @@ const iaRoutes = require('./routes/ia');
 const indicadoresRoutes = require('./routes/indicadores');
 const objetivoRoutes = require('./routes/objetivos');
 const compromisoRoutes = require('./routes/compromisos');
+const inicioRoutes = require('./routes/inicio');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -85,6 +86,7 @@ app.use('/api/ia', iaRoutes);
 app.use('/api/indicadores', indicadoresRoutes);
 app.use('/api/objetivos', objetivoRoutes);
 app.use('/api/compromisos', compromisoRoutes);
+app.use('/api/inicio', inicioRoutes);
 
 // Ruta de salud
 app.get('/api/health', async (req, res) => {

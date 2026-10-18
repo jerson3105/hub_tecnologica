@@ -8,7 +8,7 @@ import Login from './pages/Login';
 import './App.css';
 
 // Cada página se descarga al visitarla: un emprendedor no baja el código del panel de admin
-const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Inicio = lazy(() => import('./pages/Inicio'));
 const Programas = lazy(() => import('./pages/Programas'));
 const ProgramaDetalle = lazy(() => import('./pages/ProgramaDetalle'));
 const Emprendimientos = lazy(() => import('./pages/Emprendimientos'));
@@ -57,7 +57,7 @@ function App() {
           {/* Rutas protegidas con layout */}
           <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             {/* Admin */}
-            <Route path="/dashboard" element={<ProtectedRoute adminOnly><Dashboard /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<ProtectedRoute adminOnly><Inicio /></ProtectedRoute>} />
             <Route path="/programas" element={<ProtectedRoute adminOnly><Programas /></ProtectedRoute>} />
             <Route path="/programas/:id" element={<ProtectedRoute adminOnly><ProgramaDetalle /></ProtectedRoute>} />
             <Route path="/emprendimientos" element={<ProtectedRoute adminOnly><Emprendimientos /></ProtectedRoute>} />

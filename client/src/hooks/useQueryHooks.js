@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import api from '../services/api';
 
 // ─── Programas ───
@@ -85,6 +85,17 @@ export const useSeguimientos = (emprendimientoId) =>
     queryKey: ['seguimientos', emprendimientoId],
     queryFn: () => api.get(`/seguimientos/emprendimiento/${emprendimientoId}`).then(r => r.data.seguimientos),
     enabled: !!emprendimientoId
+  });
+
+// ─── Inicio del admin ───
+// Al cambiar de programa se conservan los datos anteriores mientras llegan los nuevos:
+// la página no vuelve a los skeletons ni repite las animaciones de entrada.
+export const useInicio = (programaId) =>
+  useQuery({
+    queryKey: ['inicio', programaId || 'todos'],
+    queryFn: () => api.get('/inicio', { params: programaId ? { programa_id: programaId } : {} }).then(r => r.data),
+    placeholderData: keepPreviousData,
+    staleTime: 0 // al volver al Inicio se refresca en segundo plano (sin skeletons)
   });
 
 // ─── Invalidation helper ───

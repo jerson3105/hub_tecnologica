@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import Modal from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
@@ -20,7 +20,9 @@ import { FILTRO_CLS, ETIQUETA_CLS, clasesIconButton } from '../components/ui/est
 const Sesiones = () => {
   const { esAdmin } = useAuth();
   const invalidate = useInvalidate();
-  const [modalOpen, setModalOpen] = useState(false);
+  // ?nueva=1 abre el formulario al llegar (botón «Nueva sesión» del Inicio)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [modalOpen, setModalOpen] = useState(() => esAdmin && searchParams.get('nueva') === '1');
   const [editando, setEditando] = useState(null);
   const [filtroPrograma, setFiltroPrograma] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
@@ -45,6 +47,11 @@ const Sesiones = () => {
     enabled: !esAdmin
   });
   const npsPendientes = new Set(npsPendientesArr);
+
+  // Se quita ?nueva de la URL para que una recarga no vuelva a abrir el formulario
+  useEffect(() => {
+    if (searchParams.has('nueva')) setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams]);
   const cargando = l1 || l2;
 
   const abrirModal = (sesion = null) => {

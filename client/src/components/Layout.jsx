@@ -47,7 +47,7 @@ const Layout = () => {
   };
 
   const adminLinks = [
-    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { to: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
     { to: '/programas', label: 'Programas', icon: FolderKanban },
     { to: '/emprendimientos', label: 'Emprendimientos', icon: Rocket },
     { to: '/sesiones', label: 'Sesiones', icon: CalendarDays },
@@ -73,7 +73,7 @@ const Layout = () => {
   const links = esAdmin ? adminLinks : emprendedorLinks;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-background flex">
       {/* Overlay móvil */}
       {sidebarOpen && (
         <div

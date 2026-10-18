@@ -6,9 +6,9 @@ import Button from './Button';
 const ErrorCarga = ({ mensaje = 'No se pudo cargar esta información.', onReintentar, compacto = false, className = '' }) => (
   <div
     role="alert"
-    className={`flex flex-wrap items-center gap-3 ${compacto ? 'px-4 py-3' : 'p-5'} text-sm text-red-800 ${className}`.trim()}
+    className={`flex flex-wrap items-center gap-3 ${compacto ? 'px-4 py-3' : 'p-5'} text-sm text-danger-soft-foreground ${className}`.trim()}
   >
-    <AlertTriangle size={18} className="shrink-0 text-red-700" aria-hidden="true" />
+    <AlertTriangle size={18} className="shrink-0 text-danger" aria-hidden="true" />
     <span className="flex-1 min-w-[12rem]">{mensaje}</span>
     {onReintentar && (
       <Button variante="secondary" tamanio="sm" icono={RotateCcw} onClick={() => onReintentar()}>Reintentar</Button>
