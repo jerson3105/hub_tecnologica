@@ -37,6 +37,8 @@ const CARGAS = {
     const { data } = await api.get('/indicadores/satisfaccion', { params: programaId ? { programa_id: programaId } : {} });
     return { datos: data, archivo: ['Satisfaccion-y-asistencia', data.programa?.nombre || 'todos-los-programas', data.hoy] };
   },
+  // Manual de uso del equipo técnico: contenido fijo (reportes/manual) y capturas de public/manual
+  manual: async () => ({ datos: {}, archivo: ['Manual-equipo-tecnico-HUB', new Date().toLocaleDateString('en-CA')] }),
   onepager: async (id) => {
     const [detalle, onePager] = await Promise.all([
       api.get(`/emprendimientos/${id}`),

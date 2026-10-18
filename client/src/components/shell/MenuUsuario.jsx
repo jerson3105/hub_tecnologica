@@ -1,14 +1,15 @@
 import { Link } from 'react-router-dom';
-import { User, LogOut, ChevronDown } from 'lucide-react';
+import { User, LogOut, ChevronDown, BookOpen } from 'lucide-react';
 import usePopover from './usePopover';
 import SelectorTema from './SelectorTema';
 import { ROLES_USUARIO } from '../../constants/estados';
+import { descargarInforme } from '../../reportes/descargarInforme';
 import { CHIP_CLS, FONDO_TONO } from '../ui/estilosSemanticos';
 
 const iniciales = (u) => `${u?.nombre?.[0] || ''}${u?.apellido?.[0] || ''}`.toUpperCase() || '?';
 const ITEM_CLS = 'flex min-h-10 w-full items-center gap-3 rounded-control px-3 text-left text-sm font-medium transition-colors';
 
-// Menú de usuario: quién eres, Mi perfil, el tema y cerrar sesión
+// Menú de usuario: quién eres, Mi perfil, el manual de uso (equipo técnico), el tema y cerrar sesión
 const MenuUsuario = ({ usuario, onSalir }) => {
   const { abierto, alternar, cerrar, contenedorRef, botonRef } = usePopover();
   const nombre = `${usuario?.nombre || ''} ${usuario?.apellido || ''}`.trim();
@@ -50,6 +51,11 @@ const MenuUsuario = ({ usuario, onSalir }) => {
             <Link to="/perfil" onClick={cerrar} className={`${ITEM_CLS} hover:bg-muted`}>
               <User size={17} aria-hidden="true" />Mi perfil
             </Link>
+            {usuario?.rol === 'admin' && (
+              <button type="button" onClick={() => { cerrar(); descargarInforme('manual'); }} className={`${ITEM_CLS} hover:bg-muted`}>
+                <BookOpen size={17} aria-hidden="true" />Manual de uso (PDF)
+              </button>
+            )}
             <button type="button" onClick={() => { cerrar(); onSalir(); }} className={`${ITEM_CLS} text-danger hover:bg-danger-soft`}>
               <LogOut size={17} aria-hidden="true" />Cerrar sesión
             </button>
