@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight, Rocket } from 'lucide-react';
 import { estadoReunion } from '../../utils/inicio';
-import { TARJETA_CLS, TITULO_BLOQUE_CLS } from './estilosInicio';
+import { TARJETA_CLS, TITULO_BLOQUE_CLS } from '../ui/estilosSemanticos';
+import Trazo from '../ui/Trazo';
 
 const NIVEL_REUNION = {
   ok: { texto: 'text-foreground', punto: 'bg-success-solid' },
@@ -12,22 +13,12 @@ const NIVEL_REUNION = {
 
 const CABECERA_CLS = 'eyebrow whitespace-nowrap border-y border-border px-3 py-2.5 text-left';
 
-// Avance OKR en trazo: la línea se dibuja una vez al entrar (firma del sistema visual)
+// Avance OKR en trazo
 const BarraOkr = ({ valor }) => {
   if (valor === null || valor === undefined) return <span className="text-sm text-subtle-foreground">Sin OKR</span>;
-  const completo = valor >= 100;
   return (
     <span className="flex items-center gap-2.5">
-      <svg viewBox="0 0 100 6" preserveAspectRatio="none" aria-hidden="true" className="block h-1.5 min-w-16 flex-1 overflow-visible rounded-full bg-muted">
-        {valor > 0 && (
-          <line
-            x1="3" y1="3" x2="97" y2="3" pathLength="100"
-            strokeWidth="6" strokeLinecap="round" strokeDasharray="100"
-            className={`animate-draw ${completo ? 'stroke-trazo-completo' : 'stroke-trazo'}`}
-            style={{ strokeDashoffset: 100 - Math.min(valor, 100), '--desde': 100, animationDelay: 'calc(var(--dur-draw) * 0.5)' }}
-          />
-        )}
-      </svg>
+      <Trazo valor={valor} className="min-w-16 flex-1" />
       <span className="w-11 text-right text-sm font-medium tabular-nums">{valor} %</span>
     </span>
   );
@@ -61,10 +52,10 @@ const asistenciaTexto = (valor) => (valor === null || valor === undefined ? '—
 
 // Cartera ordenada por atención requerida. Tabla cuando el bloque mide 48rem o más (consulta de
 // contenedor: depende del ancho real, con o sin sidebar) y tarjetas por debajo.
-const TablaCartera = ({ cartera = [], indice = 0 }) => (
+const TablaCartera = ({ cartera = [], indice = 0, titulo = 'Cartera', vacio = 'No hay emprendimientos activos en este programa.' }) => (
   <section id="cartera" aria-labelledby="t-cartera" className={`${TARJETA_CLS} @container animate-enter escalonado scroll-mt-4`} style={{ '--i': indice }}>
     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-5 py-4">
-      <h2 id="t-cartera" className={TITULO_BLOQUE_CLS}>Cartera</h2>
+      <h2 id="t-cartera" className={TITULO_BLOQUE_CLS}>{titulo}</h2>
       <span className="text-[13px] text-muted-foreground">
         {cartera.length === 1 ? '1 emprendimiento' : `${cartera.length} emprendimientos`} · primero lo que requiere atención
       </span>
@@ -75,7 +66,7 @@ const TablaCartera = ({ cartera = [], indice = 0 }) => (
         <span className="grid size-9 shrink-0 place-items-center rounded-control bg-muted text-muted-foreground">
           <Rocket size={18} aria-hidden="true" />
         </span>
-        <p className="text-sm text-muted-foreground">No hay emprendimientos activos en este programa.</p>
+        <p className="text-sm text-muted-foreground">{vacio}</p>
       </div>
     ) : (
       <>

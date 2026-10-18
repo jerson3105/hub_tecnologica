@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ChevronRight, CheckCircle2 } from 'lucide-react';
 import { asuntoDe } from '../../utils/inicio';
-import { TARJETA_CLS, TITULO_BLOQUE_CLS, ACCION_CLS, FONDO_TONO } from './estilosInicio';
+import { TARJETA_CLS, TITULO_BLOQUE_CLS, ACCION_CLS, FONDO_TONO } from '../ui/estilosSemanticos';
 
 // «Requiere tu atención»: cada asunto dice qué pasa, dónde y lleva a donde se resuelve
 const BandejaAtencion = ({ atencion = [], indice = 0 }) => {

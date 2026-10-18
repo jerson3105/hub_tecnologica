@@ -1,5 +1,5 @@
 import useContador from '../../hooks/useContador';
-import { TARJETA_CLS, TEXTO_TONO } from './estilosInicio';
+import { TARJETA_CLS, TEXTO_TONO } from '../ui/estilosSemanticos';
 
 // Indicador del Inicio. El número cuenta hasta su valor al entrar; el lector de pantalla
 // recibe directamente el valor final.

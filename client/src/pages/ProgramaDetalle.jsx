@@ -1,161 +1,195 @@
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Rocket, CalendarDays, Calendar, Repeat, ChevronRight, FolderKanban } from 'lucide-react';
-import { usePrograma } from '../hooks/useQueryHooks';
-import { formatFecha } from '../utils/fechas';
-import { tipoSesion } from '../constants/sesiones';
-import { ESTADOS_PROGRAMA, ESTADOS_EMPRENDIMIENTO, estadoDe } from '../constants/estados';
-import Badge from '../components/ui/Badge';
-import EmptyState from '../components/ui/EmptyState';
-import { PUNTOS_BADGE, clasesBoton } from '../components/ui/estilos';
+import { useState } from 'react';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { Plus, Pencil, ClipboardList, ChevronRight, FolderKanban } from 'lucide-react';
+import toast from 'react-hot-toast';
+import api from '../services/api';
+import { useProgramaResumen, useInvalidate } from '../hooks/useQueryHooks';
+import TarjetaKpi from '../components/inicio/TarjetaKpi';
+import TablaCartera from '../components/inicio/TablaCartera';
+import PulsoInicio from '../components/inicio/PulsoInicio';
+import SesionesPrograma from '../components/programas/SesionesPrograma';
+import ProgramaFormModal from '../components/programas/ProgramaFormModal';
+import Pestanas from '../components/ui/Pestanas';
+import Trazo from '../components/ui/Trazo';
+import ErrorCarga from '../components/ui/ErrorCarga';
+import Skeleton from '../components/ui/Skeleton';
+import {
+  TARJETA_CLS, CHIP_CLS, FONDO_TONO, BOTON_PRIMARIO_CLS, BOTON_SECUNDARIO_CLS
+} from '../components/ui/estilosSemanticos';
+import { rangoFechas, textoPeriodo, estadoPrograma, estadoSugerido, cuandoEs } from '../utils/programas';
+
+const PESTANAS = ['emprendimientos', 'sesiones', 'indicadores'];
+const plural = (n, uno, varios) => (n === 1 ? uno : varios);
+
+const indicadoresDe = ({ kpis, proximaSesion }, hoy) => [
+  {
+    titulo: 'Emprendimientos activos',
+    valor: kpis.emprendimientosActivos,
+    nota: kpis.emprendimientosGraduados > 0 ? `${kpis.emprendimientosGraduados} ${plural(kpis.emprendimientosGraduados, 'graduado', 'graduados')}` : null
+  },
+  {
+    titulo: 'Sesiones realizadas',
+    valor: kpis.sesionesRealizadas,
+    nota: `de ${kpis.sesionesTotales}${proximaSesion ? ` · próxima ${cuandoEs(proximaSesion.fecha, hoy).toLowerCase()}` : ''}`
+  },
+  {
+    titulo: 'Registros pendientes',
+    valor: kpis.registrosPendientes,
+    nota: kpis.registrosPendientes > 0 ? 'De sesiones ya realizadas' : 'Todo registrado',
+    tonoNota: kpis.registrosPendientes > 0 ? 'warning' : 'success'
+  },
+  {
+    titulo: 'Compromisos vencidos',
+    valor: kpis.compromisosVencidos,
+    nota: kpis.compromisosVencidos > 0
+      ? `En ${kpis.emprendimientosConVencidos} ${plural(kpis.emprendimientosConVencidos, 'emprendimiento', 'emprendimientos')}`
+      : 'Ninguno vencido',
+    tonoNota: kpis.compromisosVencidos > 0 ? 'danger' : 'success'
+  }
+];
+
+const Esqueleto = () => (
+  <div className="grid gap-4 lg:gap-6" role="status" aria-label="Cargando el programa">
+    <div className="grid gap-3">
+      <Skeleton className="h-4 w-40" />
+      <Skeleton className="h-9 w-72 max-w-full" />
+      <Skeleton className="h-1.5 w-full max-w-xl" />
+    </div>
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      {[0, 1, 2, 3].map((i) => <div key={i} className={`${TARJETA_CLS} h-28 p-5`}><Skeleton className="h-full" /></div>)}
+    </div>
+    <div className={`${TARJETA_CLS} grid gap-3 p-5`}>{[0, 1, 2].map((i) => <Skeleton key={i} className="h-10" />)}</div>
+  </div>
+);
 
 const ProgramaDetalle = () => {
   const { id } = useParams();
-  const { data: programa, isLoading: cargando } = usePrograma(id);
+  const { data, isLoading, isError, error, refetch } = useProgramaResumen(id);
+  const invalidate = useInvalidate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [editando, setEditando] = useState(false);
+  const tab = PESTANAS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'emprendimientos';
+  const cambiarTab = (nueva) => setSearchParams(nueva === 'emprendimientos' ? {} : { tab: nueva }, { replace: true });
 
-  if (cargando) {
-    return <div className="flex items-center justify-center h-64" role="status" aria-label="Cargando"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-cyan"></div></div>;
-  }
+  const refrescar = () => invalidate('programas', 'programa', 'inicio');
 
-  if (!programa) {
+  if (isLoading) return <div className="mx-auto max-w-page"><Esqueleto /></div>;
+
+  if (isError && !data) {
+    const noExiste = error?.response?.status === 404;
     return (
-      <EmptyState
-        icono={FolderKanban}
-        tono="neutral"
-        titulo="Programa no encontrado"
-        accion={<Link to="/programas" className={clasesBoton({ variante: 'secondary' })}>Volver a Programas</Link>}
-      />
+      <div className={`${TARJETA_CLS} mx-auto grid max-w-page justify-items-center gap-3 px-5 py-12 text-center`}>
+        {noExiste ? (
+          <>
+            <span className="grid size-12 place-items-center rounded-card bg-muted text-muted-foreground"><FolderKanban size={24} aria-hidden="true" /></span>
+            <p className="font-semibold">Programa no encontrado</p>
+            <Link to="/programas" className={BOTON_SECUNDARIO_CLS}>Volver a Programas</Link>
+          </>
+        ) : (
+          <ErrorCarga mensaje="No se pudo cargar el programa." onReintentar={refetch} />
+        )}
+      </div>
     );
   }
 
-  const estado = estadoDe(ESTADOS_PROGRAMA, programa.estado, ESTADOS_PROGRAMA.planificado);
+  const { programa, periodo, cartera, sesiones, pulso, hoy } = data;
+  const estado = estadoPrograma(programa.estado);
+  const sugerencia = estadoSugerido({ ...programa, periodo });
+  const nuevaSesion = (
+    <Link to={`/sesiones?nueva=1&programa=${programa.id}`} className={BOTON_PRIMARIO_CLS}>
+      <Plus size={16} aria-hidden="true" />Nueva sesión
+    </Link>
+  );
+
+  const corregirEstado = async () => {
+    try {
+      await api.put(`/programas/${programa.id}`, { estado: sugerencia.estado });
+      toast.success(sugerencia.estado === 'en_curso' ? 'Programa marcado en curso' : 'Programa marcado como finalizado');
+      refrescar();
+    } catch {
+      toast.error('No se pudo actualizar el estado');
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="relative">
-        <div className="absolute inset-0 bg-gradient-to-r from-brand-dark via-brand-dark to-brand-purple rounded-2xl opacity-95" aria-hidden="true"></div>
-        <div className="relative px-6 py-6 rounded-2xl">
-          <div className="flex items-center gap-3 mb-3">
-            <Link to="/programas" aria-label="Volver a Programas" title="Volver a Programas" className="inline-flex items-center justify-center min-w-10 min-h-10 -ml-2 rounded-xl text-white/50 hover:text-white transition-colors">
-              <ArrowLeft size={22} aria-hidden="true" />
-            </Link>
-            {/* Sobre el fondo oscuro se mantiene la pastilla translúcida; el punto usa el color del estado */}
-            <span className="px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1.5 bg-white/15 text-white">
-              <span className={`w-1.5 h-1.5 rounded-full ${PUNTOS_BADGE[estado.tono] || PUNTOS_BADGE.neutral}`} aria-hidden="true"></span>
-              {estado.label}
-            </span>
+    <div className="@container mx-auto grid max-w-page grid-cols-1 gap-4 lg:gap-6">
+      <nav aria-label="Ruta" className="animate-enter text-sm">
+        <ol className="flex items-center gap-1.5 text-muted-foreground">
+          <li><Link to="/programas" className="rounded-chip hover:text-link hover:underline">Programas</Link></li>
+          <li aria-hidden="true"><ChevronRight size={14} /></li>
+          <li aria-current="page" className="truncate font-medium text-foreground">{programa.nombre}</li>
+        </ol>
+      </nav>
+
+      <header className="animate-enter flex flex-wrap items-end justify-between gap-4">
+        <div className="grid min-w-0 max-w-2xl flex-1 gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={`${CHIP_CLS} ${FONDO_TONO[estado.tono]}`}>{estado.label}</span>
+            {programa.activo === false && <span className={`${CHIP_CLS} ${FONDO_TONO.neutral}`}>Desactivado</span>}
           </div>
-          <h1 className="text-2xl font-bold text-white">{programa.nombre}</h1>
-          {programa.descripcion && <p className="text-white/60 mt-1">{programa.descripcion}</p>}
+          <h1 className="font-display text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">{programa.nombre}</h1>
+          {programa.descripcion && <p className="text-muted-foreground">{programa.descripcion}</p>}
+          {periodo && (
+            <div className="mt-1 grid max-w-xl gap-1.5">
+              <div className="flex items-baseline justify-between gap-3 text-[13px]">
+                <span className="font-medium">{textoPeriodo(periodo)}</span>
+                <span className="tabular-nums text-muted-foreground">{periodo.porcentaje} %</span>
+              </div>
+              <Trazo valor={periodo.porcentaje} completo={periodo.fase === 'terminado'} retraso={0.3} />
+              <p className="text-[13px] text-muted-foreground">
+                {rangoFechas(programa.fecha_inicio, programa.fecha_fin)} · seguimiento {programa.frecuencia_seguimiento}
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="flex w-full flex-wrap gap-3 sm:w-auto">
+          <button type="button" onClick={() => setEditando(true)} className={BOTON_SECUNDARIO_CLS}>
+            <Pencil size={16} aria-hidden="true" />Editar
+          </button>
+          <Link to={`/seguimientos?programa=${programa.id}`} className={BOTON_SECUNDARIO_CLS}>
+            <ClipboardList size={16} aria-hidden="true" />Seguimiento
+          </Link>
+          {nuevaSesion}
+        </div>
+      </header>
+
+      {sugerencia && (
+        <div className="animate-enter flex flex-wrap items-center justify-between gap-2 rounded-card border border-border bg-info-soft px-4 py-2.5 text-sm">
+          <span className="text-info-soft-foreground">
+            Está marcado como «{estado.label.toLowerCase()}». {sugerencia.texto}
+          </span>
+          <button type="button" onClick={corregirEstado} className="min-h-9 rounded-control px-2 font-semibold text-link hover:bg-card/60">
+            {sugerencia.accion}
+          </button>
+        </div>
+      )}
+
+      <dl className="grid grid-cols-2 gap-3 sm:gap-4 @3xl:grid-cols-4">
+        {indicadoresDe(data, hoy).map((k, i) => <TarjetaKpi key={k.titulo} {...k} indice={i} />)}
+      </dl>
+
+      <div className="grid gap-4">
+        <Pestanas
+          idBase="programa"
+          etiqueta="Secciones del programa"
+          activa={tab}
+          onCambiar={cambiarTab}
+          pestanas={[
+            { id: 'emprendimientos', label: 'Emprendimientos', contador: cartera.length },
+            { id: 'sesiones', label: 'Sesiones', contador: sesiones.length },
+            { id: 'indicadores', label: 'Indicadores' }
+          ]}
+        />
+        <div role="tabpanel" id={`programa-panel-${tab}`} aria-labelledby={`programa-tab-${tab}`} tabIndex={0} className="rounded-card">
+          {tab === 'emprendimientos' && (
+            <TablaCartera cartera={cartera} titulo="Cartera del programa" vacio="Este programa aún no tiene emprendimientos activos." />
+          )}
+          {tab === 'sesiones' && <SesionesPrograma sesiones={sesiones} programaId={programa.id} nuevaSesion={nuevaSesion} />}
+          {tab === 'indicadores' && <PulsoInicio pulso={pulso} titulo="Indicadores del programa" periodo="en este programa" />}
         </div>
       </div>
 
-      {/* Info cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm flex items-center gap-3">
-          <div className="p-2 bg-brand-cyan/10 rounded-lg">
-            <Calendar size={18} className="text-brand-cyan-ink" aria-hidden="true" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Fecha Inicio</p>
-            <p className="font-bold text-brand-dark">{formatFecha(programa.fecha_inicio)}</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm flex items-center gap-3">
-          <div className="p-2 bg-brand-purple/10 rounded-lg">
-            <Calendar size={18} className="text-brand-purple" aria-hidden="true" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Fecha Fin</p>
-            <p className="font-bold text-brand-dark">{formatFecha(programa.fecha_fin)}</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm flex items-center gap-3">
-          <div className="p-2 bg-brand-green/10 rounded-lg">
-            <Repeat size={18} className="text-brand-green-ink" aria-hidden="true" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Frecuencia</p>
-            <p className="font-bold text-brand-dark capitalize">{programa.frecuencia_seguimiento}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Emprendimientos */}
-      <section aria-labelledby="titulo-emprendimientos" className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-          <div className="p-1.5 bg-brand-green/10 rounded-lg"><Rocket size={18} className="text-brand-green-ink" aria-hidden="true" /></div>
-          <h2 id="titulo-emprendimientos" className="text-lg font-semibold text-brand-dark">Emprendimientos</h2>
-          <span className="ml-1 text-sm text-gray-500">({programa.emprendimientos?.length || 0})</span>
-        </div>
-        {programa.emprendimientos?.length > 0 ? (
-          <ul className="divide-y divide-gray-50">
-            {programa.emprendimientos.map((emp) => {
-              const estadoEmp = estadoDe(ESTADOS_EMPRENDIMIENTO, emp.estado);
-              return (
-                <li key={emp.id}>
-                  <Link to={`/emprendimientos/${emp.id}`} className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-brand-cyan/5 transition-colors group">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-lg bg-brand-green/10 flex items-center justify-center text-brand-green-ink font-bold text-sm shrink-0" aria-hidden="true">
-                        {emp.nombre?.charAt(0)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium text-brand-dark break-words group-hover:text-brand-cyan-ink transition-colors">{emp.nombre}</p>
-                        {emp.sector && <p className="text-xs text-gray-500">{emp.sector}</p>}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Badge tono={estadoEmp.tono}>{estadoEmp.label}</Badge>
-                      <ChevronRight size={16} className="text-gray-400 group-hover:text-brand-cyan-ink transition-colors" aria-hidden="true" />
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <EmptyState icono={Rocket} tono="neutral" compacto titulo="No hay emprendimientos asignados" sinMarco />
-        )}
-      </section>
-
-      {/* Sesiones */}
-      <section aria-labelledby="titulo-sesiones" className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
-          <div className="p-1.5 bg-brand-purple/10 rounded-lg"><CalendarDays size={18} className="text-brand-purple" aria-hidden="true" /></div>
-          <h2 id="titulo-sesiones" className="text-lg font-semibold text-brand-dark">Sesiones</h2>
-          <span className="ml-1 text-sm text-gray-500">({programa.sesiones?.length || 0})</span>
-        </div>
-        {programa.sesiones?.length > 0 ? (
-          <ul className="divide-y divide-gray-50">
-            {programa.sesiones.map((ses) => {
-              const tipo = tipoSesion(ses.tipo);
-              return (
-                <li key={ses.id}>
-                  <Link to={`/sesiones/${ses.id}`} className="flex items-center justify-between gap-3 px-5 py-3.5 hover:bg-brand-cyan/5 transition-colors group">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        ses.tipo === 'taller' ? 'bg-brand-purple/10' : 'bg-brand-cyan/10'
-                      }`} aria-hidden="true">
-                        <CalendarDays size={16} className={ses.tipo === 'taller' ? 'text-brand-purple' : 'text-brand-cyan-ink'} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium text-brand-dark break-words group-hover:text-brand-cyan-ink transition-colors">{ses.titulo}</p>
-                        <p className="text-xs text-gray-500">{formatFecha(ses.fecha)}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Badge tono={tipo.tono} className="whitespace-nowrap">{tipo.label}</Badge>
-                      <ChevronRight size={16} className="text-gray-400 group-hover:text-brand-cyan-ink transition-colors" aria-hidden="true" />
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <EmptyState icono={CalendarDays} tono="neutral" compacto titulo="No hay sesiones registradas" sinMarco />
-        )}
-      </section>
+      {editando && <ProgramaFormModal programa={programa} onClose={() => setEditando(false)} onGuardado={refrescar} />}
     </div>
   );
 };

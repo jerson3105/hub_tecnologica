@@ -10,7 +10,7 @@ import TablaCartera from '../components/inicio/TablaCartera';
 import PulsoInicio from '../components/inicio/PulsoInicio';
 import ErrorCarga from '../components/ui/ErrorCarga';
 import Skeleton from '../components/ui/Skeleton';
-import { TARJETA_CLS, BOTON_PRIMARIO_CLS, BOTON_SECUNDARIO_CLS, SELECT_CLS } from '../components/inicio/estilosInicio';
+import { TARJETA_CLS, BOTON_PRIMARIO_CLS, BOTON_SECUNDARIO_CLS, SELECT_CLS } from '../components/ui/estilosSemanticos';
 
 const plural = (n, uno, varios) => (n === 1 ? uno : varios);
 

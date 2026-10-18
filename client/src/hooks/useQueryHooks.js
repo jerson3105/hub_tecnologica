@@ -15,6 +15,24 @@ export const usePrograma = (id) =>
     enabled: !!id
   });
 
+// Resúmenes del equipo técnico. Las claves empiezan por 'programas' / 'programa' para que
+// invalidate('programas') o invalidate('programa') también los refresquen.
+export const useProgramasResumen = () =>
+  useQuery({
+    queryKey: ['programas', 'resumen'],
+    queryFn: () => api.get('/programas/resumen').then(r => r.data),
+    staleTime: 0
+  });
+
+export const useProgramaResumen = (id) =>
+  useQuery({
+    queryKey: ['programa', id, 'resumen'],
+    queryFn: () => api.get(`/programas/${id}/resumen`).then(r => r.data),
+    enabled: !!id,
+    staleTime: 0,
+    retry: (intentos, error) => error?.response?.status !== 404 && intentos < 1
+  });
+
 // ─── Emprendimientos ───
 export const useEmprendimientos = (params = {}) =>
   useQuery({

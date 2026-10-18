@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { formatoDecimal } from '../../utils/inicio';
 import { formatFecha } from '../../utils/fechas';
-import { TARJETA_CLS, TITULO_BLOQUE_CLS } from './estilosInicio';
+import { TARJETA_CLS, TITULO_BLOQUE_CLS } from '../ui/estilosSemanticos';
 
 const Tarjeta = ({ titulo, cifra, children }) => (
   <div className={`${TARJETA_CLS} grid content-start gap-3 p-5`}>
@@ -67,17 +67,18 @@ const LineaAsistencia = ({ sesiones }) => {
   );
 };
 
-const PulsoInicio = ({ pulso }) => {
+// Pulso del Inicio (últimos 30 días) o de un programa completo (`periodo` cambia los textos)
+const PulsoInicio = ({ pulso, titulo = 'Pulso de los últimos 30 días', periodo = 'en los últimos 30 días' }) => {
   const { nps, asistencia, respuesta } = pulso;
   return (
     <section aria-labelledby="t-pulso" className="grid gap-3">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 id="t-pulso" className={TITULO_BLOQUE_CLS}>Pulso de los últimos 30 días</h2>
+        <h2 id="t-pulso" className={TITULO_BLOQUE_CLS}>{titulo}</h2>
         <Link to="/reportes" className="shrink-0 rounded-control text-sm font-semibold text-link hover:underline">Ver reportes</Link>
       </div>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(18rem,100%),1fr))] gap-4">
         <Tarjeta titulo="NPS promedio" cifra={formatoDecimal(nps.promedio)}>
-          {nps.total > 0 ? <DistribucionNps nps={nps} /> : <SinDatos>Sin evaluaciones en los últimos 30 días.</SinDatos>}
+          {nps.total > 0 ? <DistribucionNps nps={nps} /> : <SinDatos>Sin evaluaciones {periodo}.</SinDatos>}
         </Tarjeta>
         <Tarjeta titulo="Asistencia media" cifra={asistencia.media === null ? '—' : `${asistencia.media} %`}>
           {asistencia.sesiones.length > 0

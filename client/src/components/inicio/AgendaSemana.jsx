@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { CalendarDays } from 'lucide-react';
 import { tipoSesion } from '../../constants/sesiones';
 import { diaAgenda } from '../../utils/inicio';
-import { TARJETA_CLS, TITULO_BLOQUE_CLS, FONDO_TONO, TONO_TIPO_SESION } from './estilosInicio';
+import { TARJETA_CLS, TITULO_BLOQUE_CLS, FONDO_TONO, TONO_TIPO_SESION } from '../ui/estilosSemanticos';
 
 // Hoy y los próximos 7 días. Los registros solo se muestran en sesiones que los llevan.
 const AgendaSemana = ({ agenda = [], hoy, indice = 0 }) => (

@@ -1,7 +1,13 @@
-const { Programa, Emprendimiento, Sesion } = require('../models');
+const {
+  Programa, Emprendimiento, Sesion, SesionPrograma, Seguimiento, Compromiso, Integrante, Objetivo,
+  ResultadoClave, ActividadOKR, Asistencia, Nps
+} = require('../models');
 const { Op } = require('sequelize');
 const { paginate, paginatedResponse } = require('../utils/pagination');
 const logger = require('../utils/logger');
+const { hoyLocal } = require('../utils/fechas');
+const { programasDe, indexarAsistencias } = require('../services/inicio');
+const { resumirPrograma } = require('../services/programas');
 
 const crear = async (req, res) => {
   try {
@@ -127,4 +133,108 @@ const eliminar = async (req, res) => {
   }
 };
 
-module.exports = { crear, listar, obtenerPorId, actualizar, eliminar };
+// ─── Resúmenes (cartera, sesiones e indicadores) ───
+
+// Filas de seguimiento de uno o varios programas en pocas consultas (emprendimientos retirados fuera)
+const cargarDatosDeProgramas = async (programaIds, hoy) => {
+  const [emprendimientos, puente] = await Promise.all([
+    Emprendimiento.findAll({
+      where: { programa_id: programaIds, estado: { [Op.ne]: 'retirado' } },
+      attributes: ['id', 'nombre', 'sector', 'estado', 'programa_id'],
+      include: [{ model: Programa, as: 'programa', attributes: ['id', 'nombre'] }],
+      order: [['nombre', 'ASC']]
+    }),
+    SesionPrograma.findAll({ where: { programa_id: programaIds }, attributes: ['sesion_id'] })
+  ]);
+  const empIds = emprendimientos.map((e) => e.id);
+  const idsPuente = [...new Set(puente.map((p) => p.sesion_id))];
+
+  const [sesiones, seguimientos, integrantes, objetivos, nps] = await Promise.all([
+    Sesion.findAll({
+      // Sesiones antiguas (programa_id) y multi-programa (tabla puente)
+      where: { [Op.or]: [{ programa_id: programaIds }, ...(idsPuente.length ? [{ id: idsPuente }] : [])] },
+      attributes: ['id', 'titulo', 'fecha', 'tipo', 'programa_id'],
+      include: [{ model: Programa, as: 'programas', through: { attributes: [] }, attributes: ['id', 'nombre'] }],
+      order: [['fecha', 'ASC'], ['id', 'ASC']]
+    }),
+    empIds.length ? Seguimiento.findAll({
+      where: { emprendimiento_id: empIds },
+      attributes: ['id', 'sesion_id', 'emprendimiento_id', 'realizado'],
+      include: [
+        { model: Sesion, as: 'sesion', attributes: ['id', 'titulo', 'fecha', 'tipo'] },
+        { model: Compromiso, as: 'compromisoItems', attributes: ['id', 'estado'] }
+      ]
+    }) : [],
+    empIds.length ? Integrante.findAll({ where: { emprendimiento_id: empIds }, attributes: ['emprendimiento_id', 'usuario_id'] }) : [],
+    empIds.length ? Objetivo.findAll({
+      where: { emprendimiento_id: empIds, activo: true },
+      attributes: ['id', 'emprendimiento_id'],
+      include: [{
+        model: ResultadoClave, as: 'resultadosClave', attributes: ['id'],
+        include: [{ model: ActividadOKR, as: 'actividades', attributes: ['meta_numerica', 'meta_real', 'estado'] }]
+      }]
+    }) : [],
+    Nps.findAll({ where: { programa_id: programaIds }, attributes: ['id', 'sesion_id', 'programa_id', 'usuario_id', 'puntuacion'] })
+  ]);
+
+  const idsHastaHoy = sesiones.filter((s) => s.fecha <= hoy).map((s) => s.id);
+  const asistencias = idsHastaHoy.length
+    ? await Asistencia.findAll({ where: { sesion_id: idsHastaHoy }, attributes: ['sesion_id', 'usuario_id', 'presente'] })
+    : [];
+  return { emprendimientos, sesiones, seguimientos, integrantes, objetivos, nps, asistencias };
+};
+
+// Las filas de un solo programa. La asistencia cuenta solo a sus integrantes: en una sesión
+// compartida con otro programa, el porcentaje es el de este.
+const datosDelPrograma = (datos, programaId) => {
+  const emprendimientos = datos.emprendimientos.filter((e) => e.programa_id === programaId);
+  const empIds = new Set(emprendimientos.map((e) => e.id));
+  const integrantes = datos.integrantes.filter((i) => empIds.has(i.emprendimiento_id));
+  const usuarios = new Set(integrantes.map((i) => i.usuario_id));
+  return {
+    emprendimientos,
+    sesiones: datos.sesiones.filter((s) => programasDe(s).includes(programaId)),
+    seguimientos: datos.seguimientos.filter((s) => empIds.has(s.emprendimiento_id)),
+    integrantes,
+    objetivos: datos.objetivos.filter((o) => empIds.has(o.emprendimiento_id)),
+    nps: datos.nps.filter((r) => r.programa_id === programaId),
+    asistencia: indexarAsistencias(datos.asistencias.filter((a) => usuarios.has(a.usuario_id)))
+  };
+};
+
+// GET /api/programas/resumen — tarjetas del listado: calendario, indicadores y próxima sesión
+const listarResumen = async (req, res) => {
+  try {
+    const hoy = hoyLocal();
+    const programas = await Programa.findAll({ order: [['fecha_inicio', 'DESC']] });
+    const datos = programas.length ? await cargarDatosDeProgramas(programas.map((p) => p.id), hoy) : null;
+    res.json({
+      hoy,
+      programas: programas.map((programa) => {
+        const { periodo, kpis, proximaSesion } = resumirPrograma({ programa, hoy, ...datosDelPrograma(datos, programa.id) });
+        return { ...programa.toJSON(), periodo, kpis, proximaSesion };
+      })
+    });
+  } catch (error) {
+    logger.error('Error al resumir programas:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor' });
+  }
+};
+
+// GET /api/programas/:id/resumen — detalle: cartera, sesiones con registros y pulso del programa
+const obtenerResumen = async (req, res) => {
+  try {
+    const programa = await Programa.findByPk(req.params.id);
+    if (!programa) {
+      return res.status(404).json({ mensaje: 'Programa no encontrado' });
+    }
+    const hoy = hoyLocal();
+    const datos = await cargarDatosDeProgramas([programa.id], hoy);
+    res.json({ hoy, programa: programa.toJSON(), ...resumirPrograma({ programa, hoy, ...datosDelPrograma(datos, programa.id) }) });
+  } catch (error) {
+    logger.error('Error al resumir el programa:', error);
+    res.status(500).json({ mensaje: 'Error interno del servidor' });
+  }
+};
+
+module.exports = { crear, listar, obtenerPorId, actualizar, eliminar, listarResumen, obtenerResumen };

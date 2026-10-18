@@ -6,14 +6,12 @@ const {
 const logger = require('../utils/logger');
 const { hoyLocal } = require('../utils/fechas');
 const {
-  TIPOS_CON_REGISTRO, sumarDias, diasEntre, tieneTexto, porcentaje,
-  resumirEmprendimiento, ordenarCartera, resumirNps, compromisosDe
+  TIPOS_CON_REGISTRO, sumarDias, diasEntre, tieneTexto, porcentaje, agruparPor, programasDe,
+  indexarAsistencias, construirCartera, contadorDeRegistros, resumirNps, compromisosDe
 } = require('../services/inicio');
 
 const CAMPOS_BMC = ['socios_clave', 'actividades_clave', 'recursos_clave', 'propuesta_valor', 'relacion_clientes', 'canales', 'segmento_clientes', 'estructura_costos', 'fuentes_ingresos'];
 const sesionResumida = (s) => (s ? { id: s.id, titulo: s.titulo, fecha: s.fecha, tipo: s.tipo } : null);
-// Programas de una sesión (la tabla puente y, en sesiones antiguas, la columna programa_id)
-const programasDe = (sesion) => [...new Set([...(sesion.programas || []).map((p) => p.id), sesion.programa_id].filter(Boolean))];
 // Día (en la zona del negocio) de una marca de tiempo
 const diaLocal = (marca) => (marca ? hoyLocal(new Date(marca)) : null);
 
@@ -89,50 +87,11 @@ const obtenerInicio = async (req, res) => {
     const asistencias = idsAsistencia.length
       ? await Asistencia.findAll({ where: { sesion_id: idsAsistencia }, attributes: ['sesion_id', 'usuario_id', 'presente'] })
       : [];
-    const sesionesConAsistencia = new Set(asistencias.map((a) => a.sesion_id));
-    const presentesPorSesion = new Map();
-    const totalesPorSesion = new Map();
-    asistencias.forEach((a) => {
-      totalesPorSesion.set(a.sesion_id, (totalesPorSesion.get(a.sesion_id) || 0) + 1);
-      if (!a.presente) return;
-      if (!presentesPorSesion.has(a.sesion_id)) presentesPorSesion.set(a.sesion_id, new Set());
-      presentesPorSesion.get(a.sesion_id).add(a.usuario_id);
-    });
+    const { sesionesConAsistencia, presentesPorSesion, totalesPorSesion } = indexarAsistencias(asistencias);
+    const segPorEmp = agruparPor(seguimientos, 'emprendimiento_id');
 
-    // Índices por emprendimiento
-    const porEmp = (lista, clave = 'emprendimiento_id') => lista.reduce((mapa, item) => {
-      const id = item[clave];
-      if (!mapa.has(id)) mapa.set(id, []);
-      mapa.get(id).push(item);
-      return mapa;
-    }, new Map());
-    const segPorEmp = porEmp(seguimientos);
-    const usuariosPorEmp = new Map([...porEmp(integrantes)].map(([id, filas]) => [id, new Set(filas.map((f) => f.usuario_id))]));
-    const actividadesPorEmp = new Map([...porEmp(objetivos)].map(([id, objs]) => [
-      id,
-      objs.flatMap((o) => (o.resultadosClave || []).flatMap((rc) => rc.actividades || []))
-    ]));
-
-    // Cartera
-    const cartera = ordenarCartera(emprendimientos.map((emprendimiento) => resumirEmprendimiento({
-      emprendimiento,
-      seguimientos: segPorEmp.get(emprendimiento.id) || [],
-      hoy,
-      usuarios: usuariosPorEmp.get(emprendimiento.id) || new Set(),
-      actividades: actividadesPorEmp.get(emprendimiento.id) || [],
-      sesionesConAsistencia,
-      presentesPorSesion
-    })));
-
-    // Registros esperados: uno por sesión y emprendimiento de sus programas. Si la fila aún no
-    // existe cuenta como pendiente, igual que la entrada virtual del timeline.
-    const segPorPar = new Map(seguimientos.map((s) => [`${s.sesion_id}-${s.emprendimiento_id}`, s]));
-    const empsPorPrograma = porEmp(emprendimientos, 'programa_id');
-    const registrosDe = (sesion) => {
-      const emps = programasDe(sesion).flatMap((pid) => empsPorPrograma.get(pid) || []);
-      const pendientes = emps.filter((e) => !tieneTexto(segPorPar.get(`${sesion.id}-${e.id}`)?.realizado));
-      return { total: emps.length, registrados: emps.length - pendientes.length, pendientes };
-    };
+    const cartera = construirCartera({ emprendimientos, seguimientos, integrantes, objetivos, hoy, sesionesConAsistencia, presentesPorSesion });
+    const registrosDe = contadorDeRegistros({ emprendimientos, seguimientos });
 
     // Indicadores
     const registrosPendientes = sesionesFiltradas

@@ -1,198 +1,154 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import api from '../services/api';
-import Modal from '../components/Modal';
-import { Plus, Edit, Eye, FolderKanban, Calendar, Repeat, Rocket, Archive, RotateCcw } from 'lucide-react';
+import { Plus, FolderKanban } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useProgramas, useInvalidate } from '../hooks/useQueryHooks';
-import { formatFecha } from '../utils/fechas';
-import Button from '../components/ui/Button';
-import Badge from '../components/ui/Badge';
-import EmptyState from '../components/ui/EmptyState';
-import { Field, Input, Select, Textarea } from '../components/ui/Field';
-import { clasesBoton } from '../components/ui/estilos';
-import { ESTADOS_PROGRAMA, estadoDe } from '../constants/estados';
+import api from '../services/api';
+import { useProgramasResumen, useInvalidate } from '../hooks/useQueryHooks';
+import TarjetaPrograma from '../components/programas/TarjetaPrograma';
+import ProgramaFormModal from '../components/programas/ProgramaFormModal';
+import ErrorCarga from '../components/ui/ErrorCarga';
+import Skeleton from '../components/ui/Skeleton';
+import { TARJETA_CLS, BOTON_PRIMARIO_CLS } from '../components/ui/estilosSemanticos';
 
-// Acciones del pie de cada tarjeta: botones de texto con el color de su acción, repartidos a lo ancho
-const ACCION_TARJETA = { variante: 'texto', tamanio: 'lg', className: 'flex-1' };
+// En curso primero, luego los que van a empezar y al final los terminados
+const ORDEN_FASE = { en_curso: 0, por_empezar: 1, terminado: 2 };
+const ordenar = (programas) => [...programas].sort((a, b) =>
+  (ORDEN_FASE[a.periodo?.fase] ?? 3) - (ORDEN_FASE[b.periodo?.fase] ?? 3) || String(b.fecha_inicio).localeCompare(String(a.fecha_inicio)));
+
+const REJILLA_CLS = 'grid grid-cols-[repeat(auto-fill,minmax(min(24rem,100%),1fr))] gap-4 lg:gap-6';
+
+const Esqueleto = () => (
+  <ul className={REJILLA_CLS} role="status" aria-label="Cargando programas">
+    {[0, 1].map((i) => (
+      <li key={i} className={`${TARJETA_CLS} grid gap-4 p-5`}>
+        <Skeleton className="h-5 w-24" />
+        <Skeleton className="h-6 w-2/3" />
+        <Skeleton className="h-1.5 w-full" />
+        <div className="grid grid-cols-3 gap-3">{[0, 1, 2].map((j) => <Skeleton key={j} className="h-10" />)}</div>
+        <Skeleton className="h-4 w-1/2" />
+      </li>
+    ))}
+  </ul>
+);
 
 const Programas = () => {
-  const { data: programas = [], isLoading: cargando } = useProgramas();
+  const { data, isLoading, isError, refetch } = useProgramasResumen();
   const invalidate = useInvalidate();
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editando, setEditando] = useState(null);
-  const [guardando, setGuardando] = useState(false);
-  const [form, setForm] = useState({
-    nombre: '', descripcion: '', fecha_inicio: '', fecha_fin: '', frecuencia_seguimiento: 'semanal', estado: 'planificado'
-  });
+  const [formulario, setFormulario] = useState(null); // null cerrado · { programa } abierto
+  const [verDesactivados, setVerDesactivados] = useState(false);
 
-  const abrirModal = (programa = null) => {
-    if (programa) {
-      setEditando(programa);
-      setForm({
-        nombre: programa.nombre,
-        descripcion: programa.descripcion || '',
-        fecha_inicio: programa.fecha_inicio,
-        fecha_fin: programa.fecha_fin,
-        frecuencia_seguimiento: programa.frecuencia_seguimiento,
-        estado: programa.estado
-      });
-    } else {
-      setEditando(null);
-      setForm({ nombre: '', descripcion: '', fecha_inicio: '', fecha_fin: '', frecuencia_seguimiento: 'semanal', estado: 'planificado' });
-    }
-    setModalOpen(true);
-  };
+  const refrescar = () => invalidate('programas', 'programa', 'inicio');
 
-  const guardar = async (e) => {
-    e.preventDefault();
-    setGuardando(true);
+  // «Eliminar» desactiva (activo = false) y se puede revertir
+  const cambiarActivo = async (programa) => {
+    const desactivar = programa.activo !== false;
+    if (desactivar && !window.confirm(`¿Desactivar el programa «${programa.nombre}»? Podrás reactivarlo después.`)) return;
     try {
-      if (editando) {
-        await api.put(`/programas/${editando.id}`, form);
-        toast.success('Programa actualizado');
-      } else {
-        await api.post('/programas', form);
-        toast.success('Programa creado');
-      }
-      setModalOpen(false);
-      invalidate('programas');
-    } catch (error) {
-      toast.error(error.response?.data?.mensaje || 'Error al guardar');
-    } finally {
-      setGuardando(false);
-    }
-  };
-
-  // "Eliminar" en realidad desactiva (activo=false): se muestra como tal y se puede revertir
-  const cambiarActivo = async (prog) => {
-    if (prog.activo !== false && !confirm(`¿Desactivar el programa "${prog.nombre}"? Podrás reactivarlo después.`)) return;
-    try {
-      if (prog.activo === false) {
-        await api.put(`/programas/${prog.id}`, { activo: true });
-        toast.success('Programa reactivado');
-      } else {
-        await api.delete(`/programas/${prog.id}`);
-        toast.success('Programa desactivado');
-      }
-      invalidate('programas');
+      if (desactivar) await api.delete(`/programas/${programa.id}`);
+      else await api.put(`/programas/${programa.id}`, { activo: true });
+      toast.success(desactivar ? 'Programa desactivado' : 'Programa reactivado');
+      refrescar();
     } catch {
       toast.error('No se pudo actualizar el programa');
     }
   };
 
-  if (cargando) {
-    return <div className="flex items-center justify-center h-64" role="status" aria-label="Cargando"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-cyan"></div></div>;
-  }
+  const corregirEstado = async (programa, estado) => {
+    try {
+      await api.put(`/programas/${programa.id}`, { estado });
+      toast.success(estado === 'en_curso' ? 'Programa marcado en curso' : 'Programa marcado como finalizado');
+      refrescar();
+    } catch {
+      toast.error('No se pudo actualizar el estado');
+    }
+  };
+
+  const programas = ordenar(data?.programas || []);
+  const activos = programas.filter((p) => p.activo !== false);
+  const desactivados = programas.filter((p) => p.activo === false);
+  const visibles = verDesactivados ? desactivados : activos;
+  const enCurso = activos.filter((p) => p.periodo?.fase === 'en_curso').length;
+  const emprendimientos = activos.reduce((t, p) => t + p.kpis.emprendimientosActivos, 0);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-brand-dark flex items-center gap-2">
-            <div className="p-2 bg-brand-cyan/10 rounded-xl"><FolderKanban size={22} className="text-brand-cyan-ink" aria-hidden="true" /></div>
-            Programas
-          </h1>
-          <p className="text-gray-500 mt-1 sm:ml-12">Gestión de programas de incubación</p>
+    <div className="mx-auto grid max-w-page grid-cols-1 gap-4 lg:gap-6">
+      <header className="animate-enter flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <p className="eyebrow">Gestión</p>
+          <h1 className="mt-1 font-display text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">Programas</h1>
+          {data && (
+            <p className="mt-1 text-muted-foreground">
+              {enCurso === 1 ? '1 programa en curso' : `${enCurso} programas en curso`} · {emprendimientos === 1 ? '1 emprendimiento activo' : `${emprendimientos} emprendimientos activos`}
+            </p>
+          )}
         </div>
-        <Button icono={Plus} onClick={() => abrirModal()} className="self-start sm:self-auto">Nuevo Programa</Button>
-      </div>
+        <button type="button" onClick={() => setFormulario({ programa: null })} className={BOTON_PRIMARIO_CLS}>
+          <Plus size={16} aria-hidden="true" />Nuevo programa
+        </button>
+      </header>
 
-      {programas.length === 0 ? (
-        <EmptyState
-          icono={FolderKanban}
-          tono="cyan"
-          titulo="No hay programas registrados"
-          descripcion="Crea tu primer programa para comenzar"
-          accion={<Button icono={Plus} onClick={() => abrirModal()}>Crear primer programa</Button>}
-        />
-      ) : (
-        <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {programas.map((prog) => {
-            const estado = estadoDe(ESTADOS_PROGRAMA, prog.estado, ESTADOS_PROGRAMA.planificado);
-            return (
-              <li key={prog.id} className="group bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg hover:border-brand-cyan/20 transition-all duration-300">
-                {/* Card top accent */}
-                <div className="h-1.5 bg-gradient-to-r from-brand-cyan to-brand-green" aria-hidden="true"></div>
-                <div className="p-5">
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <h3 className="font-bold text-brand-dark text-lg min-w-0 break-words">
-                      {prog.nombre}
-                      {prog.activo === false && <Badge className="ml-2 align-middle">Inactivo</Badge>}
-                    </h3>
-                    <Badge tono={estado.tono} punto className="shrink-0 whitespace-nowrap">{estado.label}</Badge>
-                  </div>
-                  {prog.descripcion && <p className="text-sm text-gray-500 mb-4 line-clamp-2 leading-relaxed">{prog.descripcion}</p>}
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <Calendar size={13} className="text-brand-cyan-ink shrink-0" aria-hidden="true" />
-                      <span>{formatFecha(prog.fecha_inicio)} — {formatFecha(prog.fecha_fin)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <Repeat size={13} className="text-brand-purple shrink-0" aria-hidden="true" />
-                      <span className="capitalize">{prog.frecuencia_seguimiento}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <Rocket size={13} className="text-brand-green-ink shrink-0" aria-hidden="true" />
-                      <span>{prog.emprendimientos?.length || 0} emprendimientos</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-1 border-t border-gray-50 pt-3 -mx-1">
-                    <Link to={`/programas/${prog.id}`} aria-label={`Ver programa ${prog.nombre}`} className={clasesBoton({ ...ACCION_TARJETA, tono: 'brand' })}>
-                      <Eye size={16} aria-hidden="true" /> Ver
-                    </Link>
-                    <Button {...ACCION_TARJETA} tono="purple" icono={Edit} onClick={() => abrirModal(prog)} aria-label={`Editar programa ${prog.nombre}`}>Editar</Button>
-                    {prog.activo === false ? (
-                      <Button {...ACCION_TARJETA} tono="success" icono={RotateCcw} onClick={() => cambiarActivo(prog)} aria-label={`Reactivar programa ${prog.nombre}`}>Reactivar</Button>
-                    ) : (
-                      <Button {...ACCION_TARJETA} tono="danger" icono={Archive} onClick={() => cambiarActivo(prog)} aria-label={`Desactivar programa ${prog.nombre}`}>Desactivar</Button>
-                    )}
-                  </div>
-                </div>
-              </li>
-            );
-          })}
+      {desactivados.length > 0 && (
+        <div className="flex gap-1 rounded-control bg-muted p-1 sm:w-fit" role="group" aria-label="Mostrar programas">
+          {[
+            { valor: false, texto: `Activos (${activos.length})` },
+            { valor: true, texto: `Desactivados (${desactivados.length})` }
+          ].map((o) => (
+            <button
+              key={o.texto}
+              type="button"
+              aria-pressed={verDesactivados === o.valor}
+              onClick={() => setVerDesactivados(o.valor)}
+              className={`min-h-9 flex-1 rounded-[calc(var(--radius-control)-4px)] px-3 text-sm font-semibold transition-colors sm:flex-none ${
+                verDesactivados === o.valor ? 'bg-card text-foreground elevation-1' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {o.texto}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {isLoading && <Esqueleto />}
+
+      {isError && !data && (
+        <div className={TARJETA_CLS}><ErrorCarga mensaje="No se pudieron cargar los programas." onReintentar={refetch} /></div>
+      )}
+
+      {data && visibles.length === 0 && (
+        <div className={`${TARJETA_CLS} grid justify-items-center gap-3 px-5 py-12 text-center`}>
+          <span className="grid size-12 place-items-center rounded-card bg-programa-soft text-programa-soft-foreground">
+            <FolderKanban size={24} aria-hidden="true" />
+          </span>
+          <div>
+            <p className="font-semibold">{verDesactivados ? 'No hay programas desactivados' : 'Aún no hay programas'}</p>
+            {!verDesactivados && <p className="text-sm text-muted-foreground">Crea el primero para organizar emprendimientos y sesiones.</p>}
+          </div>
+          {!verDesactivados && (
+            <button type="button" onClick={() => setFormulario({ programa: null })} className={BOTON_PRIMARIO_CLS}>
+              <Plus size={16} aria-hidden="true" />Crear programa
+            </button>
+          )}
+        </div>
+      )}
+
+      {data && visibles.length > 0 && (
+        <ul className={REJILLA_CLS}>
+          {visibles.map((programa, i) => (
+            <TarjetaPrograma
+              key={programa.id}
+              programa={programa}
+              hoy={data.hoy}
+              indice={i}
+              onEditar={(p) => setFormulario({ programa: p })}
+              onCambiarActivo={cambiarActivo}
+              onCorregirEstado={corregirEstado}
+            />
+          ))}
         </ul>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editando ? 'Editar Programa' : 'Nuevo Programa'} size="lg">
-        <form onSubmit={guardar} className="space-y-5">
-          <Field label="Nombre" requerido>
-            <Input type="text" value={form.nombre} onChange={(e) => setForm({...form, nombre: e.target.value})} placeholder="Ej: Crece3G" />
-          </Field>
-          <Field label="Descripción">
-            <Textarea value={form.descripcion} onChange={(e) => setForm({...form, descripcion: e.target.value})} rows={3} className="resize-y" placeholder="Descripción del programa..." />
-          </Field>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Fecha de inicio" requerido>
-              <Input type="date" value={form.fecha_inicio} onChange={(e) => setForm({...form, fecha_inicio: e.target.value})} />
-            </Field>
-            <Field label="Fecha de fin" requerido>
-              <Input type="date" value={form.fecha_fin} min={form.fecha_inicio || undefined} onChange={(e) => setForm({...form, fecha_fin: e.target.value})} />
-            </Field>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Frecuencia de seguimiento">
-              <Select value={form.frecuencia_seguimiento} onChange={(e) => setForm({...form, frecuencia_seguimiento: e.target.value})}>
-                <option value="semanal">Semanal</option>
-                <option value="quincenal">Quincenal</option>
-              </Select>
-            </Field>
-            {editando && (
-              <Field label="Estado">
-                <Select value={form.estado} onChange={(e) => setForm({...form, estado: e.target.value})}>
-                  {Object.entries(ESTADOS_PROGRAMA).map(([valor, { label }]) => <option key={valor} value={valor}>{label}</option>)}
-                </Select>
-              </Field>
-            )}
-          </div>
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-5 border-t border-gray-100">
-            <Button variante="ghost" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button type="submit" cargando={guardando}>{editando ? 'Actualizar' : 'Crear Programa'}</Button>
-          </div>
-        </form>
-      </Modal>
+      {formulario && (
+        <ProgramaFormModal programa={formulario.programa} onClose={() => setFormulario(null)} onGuardado={refrescar} />
+      )}
     </div>
   );
 };

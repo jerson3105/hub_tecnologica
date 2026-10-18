@@ -16,6 +16,10 @@ router.post('/', esAdmin, [
 
 router.get('/', programaController.listar);
 
+// Resúmenes del equipo técnico (antes de /:id para que «resumen» no se tome como id)
+router.get('/resumen', esAdmin, programaController.listarResumen);
+router.get('/:id/resumen', esAdmin, programaController.obtenerResumen);
+
 router.get('/:id', programaController.obtenerPorId);
 
 router.put('/:id', esAdmin, programaController.actualizar);

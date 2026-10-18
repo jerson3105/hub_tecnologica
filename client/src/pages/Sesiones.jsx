@@ -20,16 +20,18 @@ import { FILTRO_CLS, ETIQUETA_CLS, clasesIconButton } from '../components/ui/est
 const Sesiones = () => {
   const { esAdmin } = useAuth();
   const invalidate = useInvalidate();
-  // ?nueva=1 abre el formulario al llegar (botón «Nueva sesión» del Inicio)
+  // ?nueva=1 abre el formulario al llegar (botón «Nueva sesión» del Inicio y de Programas);
+  // ?programa=ID lo deja con ese programa elegido
   const [searchParams, setSearchParams] = useSearchParams();
   const [modalOpen, setModalOpen] = useState(() => esAdmin && searchParams.get('nueva') === '1');
   const [editando, setEditando] = useState(null);
   const [filtroPrograma, setFiltroPrograma] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
   const [guardando, setGuardando] = useState(false);
-  const [form, setForm] = useState({
-    programa_ids: [], titulo: '', descripcion: '', fecha: '', tipo: 'uno_a_uno_programa', enlace_grabacion: ''
-  });
+  const [form, setForm] = useState(() => ({
+    programa_ids: Number(searchParams.get('programa')) ? [Number(searchParams.get('programa'))] : [],
+    titulo: '', descripcion: '', fecha: '', tipo: 'uno_a_uno_programa', enlace_grabacion: ''
+  }));
 
   const sesParams = {};
   if (filtroPrograma) sesParams.programa_id = filtroPrograma;
