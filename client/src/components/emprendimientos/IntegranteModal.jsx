@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import api from '../../services/api';
 import Modal, { ModalPie } from '../Modal';
 import IntegranteFields from '../IntegranteFields';
+import ContrasenaTemporal from '../usuarios/ContrasenaTemporal';
 import Button from '../ui/Button';
 import Segmentado from '../ui/Segmentado';
 import Skeleton from '../ui/Skeleton';
@@ -23,6 +24,8 @@ const IntegranteModal = ({ emprendimiento, onClose, onGuardado }) => {
   const [busqueda, setBusqueda] = useState('');
   const [seleccionadoId, setSeleccionadoId] = useState('');
   const [guardando, setGuardando] = useState(false);
+  // Usuario creado aquí: su contraseña temporal solo se puede ver ahora
+  const [creado, setCreado] = useState(null);
 
   useEffect(() => {
     let cancelado = false;
@@ -62,16 +65,30 @@ const IntegranteModal = ({ emprendimiento, onClose, onGuardado }) => {
       const payload = modo === 'existente'
         ? { usuario_id: seleccionadoId, rol_emprendimiento: form.rol_emprendimiento, es_lider: form.es_lider }
         : form;
-      await api.post(`/emprendimientos/${emprendimiento.id}/integrantes`, payload);
+      const { data } = await api.post(`/emprendimientos/${emprendimiento.id}/integrantes`, payload);
       toast.success(modo === 'existente' ? 'Usuario asignado' : 'Integrante agregado');
       onGuardado?.();
-      onClose();
+      if (data.passwordTemporal) setCreado({ nombre: `${data.usuario?.nombre || ''} ${data.usuario?.apellido || ''}`.trim(), password: data.passwordTemporal });
+      else onClose();
     } catch (error) {
       toast.error(error.response?.data?.mensaje || 'Error al agregar integrante');
     } finally {
       setGuardando(false);
     }
   };
+
+  if (creado) {
+    return (
+      <Modal isOpen onClose={onClose} size="md" title="Integrante agregado" descripcion={`${creado.nombre} ya está en el equipo de ${emprendimiento.nombre} y puede entrar con su correo.`}>
+        <div className="space-y-5">
+          <ContrasenaTemporal password={creado.password} />
+          <ModalPie>
+            <Button onClick={onClose}>Listo</Button>
+          </ModalPie>
+        </div>
+      </Modal>
+    );
+  }
 
   return (
     <Modal isOpen onClose={onClose} size="lg" title="Agregar integrante" descripcion={`Al equipo de ${emprendimiento.nombre}`}>

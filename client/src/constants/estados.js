@@ -15,7 +15,7 @@ export const ESTADOS_PROGRAMA = {
 };
 
 export const ROLES_USUARIO = {
-  admin: { label: 'Administrador', tono: 'purple' },
+  admin: { label: 'Equipo técnico', tono: 'purple' },
   emprendedor: { label: 'Emprendedor', tono: 'green' }
 };
 
