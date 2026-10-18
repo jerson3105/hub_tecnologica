@@ -1,10 +1,11 @@
-import { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useSearchParams } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+import { useTema, aplicarTema } from './tema';
 import './App.css';
 
 // Cada página se descarga al visitarla: un emprendedor no baja el código del panel de admin
@@ -29,8 +30,8 @@ const MisObjetivos = lazy(() => import('./pages/MisObjetivos'));
 const MiSeguimiento = lazy(() => import('./pages/MiSeguimiento'));
 
 const Cargando = ({ pantallaCompleta = false }) => (
-  <div className={`${pantallaCompleta ? 'min-h-screen' : 'h-64'} flex items-center justify-center`} role="status" aria-label="Cargando">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-cyan"></div>
+  <div className={`${pantallaCompleta ? 'min-h-dvh bg-background' : 'h-64'} flex items-center justify-center`} role="status" aria-label="Cargando">
+    <div className="size-10 animate-spin rounded-full border-2 border-muted border-t-primary" />
   </div>
 );
 
@@ -48,6 +49,15 @@ const RedirigirAsistencias = () => {
   return <Navigate to={sesion ? `/sesiones/${sesion}?tab=asistencia` : '/sesiones'} replace />;
 };
 
+// Aplica el tema (data-theme en <html>) al cambiar de ruta o de preferencia; las pantallas sin
+// rediseñar se ven en claro (ver tema.js)
+const AplicarTema = () => {
+  const { pathname } = useLocation();
+  const { tema, oscuro } = useTema();
+  useEffect(() => { aplicarTema(pathname); }, [pathname, tema, oscuro]);
+  return null;
+};
+
 const RedirectByRole = () => {
   const { usuario, cargando } = useAuth();
   if (cargando) return <Cargando pantallaCompleta />;
@@ -59,6 +69,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
+        <AplicarTema />
         <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
         <Suspense fallback={<Cargando pantallaCompleta />}>
         <Routes>

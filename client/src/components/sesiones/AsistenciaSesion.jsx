@@ -119,7 +119,7 @@ const AsistenciaSesion = ({ sesionId, emprendimientos, sesionFutura }) => {
       </div>
 
       {pendientes > 0 && (
-        <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur lg:mx-0 lg:rounded-card lg:border lg:bg-card lg:px-5">
+        <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:bottom-0 lg:mx-0 lg:rounded-card lg:border lg:bg-card lg:px-5">
           <span className="text-sm text-warning" aria-live="polite">{pendientes === 1 ? '1 cambio sin guardar' : `${pendientes} cambios sin guardar`}</span>
           <div className="flex gap-2">
             <Button variante="ghost" onClick={() => setCambios({})}>Descartar</Button>

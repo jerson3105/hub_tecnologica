@@ -249,7 +249,7 @@ const RegistroRonda = () => {
       ) : (
         <div className="grid items-start gap-4 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6">
           {/* Lista de la ronda: barra lateral fija en escritorio, selector en móvil */}
-          <nav aria-label="Emprendimientos de la ronda" className={`${TARJETA_CLS} hidden p-2 lg:sticky lg:top-4 lg:block`}>
+          <nav aria-label="Emprendimientos de la ronda" className={`${TARJETA_CLS} hidden p-2 lg:sticky lg:top-20 lg:block`}>
             <ul className="grid gap-0.5">
               {emps.map((e) => {
                 const esActual = e.id === actual?.id;
@@ -301,7 +301,7 @@ const RegistroRonda = () => {
             />
 
             {/* Acciones fijas al pie, junto al pulgar y siempre a la vista */}
-            <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur lg:mx-0 lg:rounded-card lg:border lg:bg-card lg:px-5">
+            <div className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:bottom-0 lg:mx-0 lg:rounded-card lg:border lg:bg-card lg:px-5">
               <button type="button" onClick={noAsistio} className={BOTON_SECUNDARIO_CLS} disabled={!actual.equipo.length} title={actual.equipo.length ? undefined : 'Sin integrantes'}>
                 <UserX size={16} aria-hidden="true" />No asistió
               </button>

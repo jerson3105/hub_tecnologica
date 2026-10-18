@@ -79,7 +79,7 @@ const Seguimiento = () => {
       {isError && !data && <div className={TARJETA_CLS}><ErrorCarga mensaje="No se pudo cargar la cartera." onReintentar={refetch} /></div>}
 
       <div className="grid items-start gap-4 lg:grid-cols-[20rem_minmax(0,1fr)] lg:gap-6">
-        <nav aria-label="Cartera de emprendimientos" className={`${TARJETA_CLS} grid gap-3 p-3 lg:sticky lg:top-4 ${seleccionado ? 'hidden lg:grid' : ''}`}>
+        <nav aria-label="Cartera de emprendimientos" className={`${TARJETA_CLS} grid gap-3 p-3 lg:sticky lg:top-20 ${seleccionado ? 'hidden lg:grid' : ''}`}>
           <div className="relative">
             <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input type="search" value={busqueda} onChange={(e) => actualizar({ q: e.target.value })} placeholder="Nombre, sector o líder" aria-label="Buscar emprendimiento" className="pl-9" />
