@@ -10,6 +10,8 @@ import { ESTADOS_EMPRENDIMIENTO, CATEGORIAS_ARCHIVO, estadoDe, ESTADOS_AVANCE } 
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import EmptyState from '../components/ui/EmptyState';
+import ErrorCarga from '../components/ui/ErrorCarga';
+import ListaCompromisos from '../components/ListaCompromisos';
 import { Field, Textarea } from '../components/ui/Field';
 import { FILTRO_CLS, PUNTOS_BADGE } from '../components/ui/estilos';
 
@@ -28,9 +30,9 @@ const EmprendimientoDetalle = () => {
     enabled: !!id
   });
 
-  const { data: opData, isLoading: cargandoOnePager } = useQuery({
+  const { data: opData, isLoading: cargandoOnePager, isError: errorOnePager, refetch: reintentarOnePager } = useQuery({
     queryKey: ['onePager', id],
-    queryFn: () => api.get(`/one-pager/${id}`).then(r => r.data).catch(() => ({ onePager: null, completo: false })),
+    queryFn: () => api.get(`/one-pager/${id}`).then(r => r.data),
     enabled: !!id
   });
   const onePager = opData?.onePager || null;
@@ -39,9 +41,9 @@ const EmprendimientoDetalle = () => {
   // Versiones y versión seleccionada como consultas independientes. Antes el queryFn
   // guardaba la selección como efecto secundario: al volver con datos en caché no se
   // ejecutaba y se mostraba "aún no ha creado su BMC" aunque hubiera versiones.
-  const { data: bmcVersiones = [] } = useQuery({
+  const { data: bmcVersiones = [], isError: errorBmc, refetch: reintentarBmc } = useQuery({
     queryKey: ['bmcVersiones', id],
-    queryFn: () => api.get(`/bmc/emprendimiento/${id}`).then(r => r.data.versiones || []).catch(() => []),
+    queryFn: () => api.get(`/bmc/emprendimiento/${id}`).then(r => r.data.versiones || []),
     enabled: !!id
   });
   const bmcIdActivo = bmcSelId ?? bmcVersiones[0]?.id ?? null;
@@ -332,12 +334,7 @@ const EmprendimientoDetalle = () => {
                       <p className="text-sm text-gray-700 mt-0.5">{seg.realizado}</p>
                     </div>
                   )}
-                  {seg.compromisos && (
-                    <div className="mb-2">
-                      <p className="eyebrow">Compromisos</p>
-                      <p className="text-sm text-gray-700 mt-0.5">{seg.compromisos}</p>
-                    </div>
-                  )}
+                  <ListaCompromisos seguimiento={seg} />
                   {seg.observaciones && (
                     <div className="mb-2">
                       <p className="eyebrow">Observaciones</p>
@@ -374,7 +371,9 @@ const EmprendimientoDetalle = () => {
             </Button>
           )}
         </div>
-        {cargandoOnePager ? (
+        {errorOnePager ? (
+          <ErrorCarga mensaje="No se pudo cargar el One Pager." onReintentar={reintentarOnePager} />
+        ) : cargandoOnePager ? (
           <div className="text-center py-10" role="status" aria-label="Cargando One Pager"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-cyan mx-auto"></div></div>
         ) : onePager ? (
           <div className="p-5 space-y-4">
@@ -486,7 +485,9 @@ const EmprendimientoDetalle = () => {
             )}
           </div>
 
-          {bmcIdActivo && cargandoBmc ? (
+          {errorBmc ? (
+            <ErrorCarga mensaje="No se pudo cargar el Business Model Canvas." onReintentar={reintentarBmc} />
+          ) : bmcIdActivo && cargandoBmc ? (
             <div className="text-center py-10" role="status" aria-label="Cargando BMC"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-cyan mx-auto"></div></div>
           ) : bmcSeleccionada ? (
             <div className="p-5 space-y-4">

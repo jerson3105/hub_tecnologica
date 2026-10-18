@@ -68,15 +68,15 @@ export const useArchivos = (params = {}) =>
 export const useNpsResumen = () =>
   useQuery({
     queryKey: ['nps', 'resumen'],
-    queryFn: () => api.get('/nps/resumen').then(r => r.data.resumen || []).catch(() => []),
-    retry: false
+    queryFn: () => api.get('/nps/resumen').then(r => r.data.resumen || []),
+    retry: 1
   });
 
 export const useNpsPromedios = () =>
   useQuery({
     queryKey: ['nps', 'promedios'],
-    queryFn: () => api.get('/nps/promedios').then(r => r.data.promedios || {}).catch(() => ({})),
-    retry: false
+    queryFn: () => api.get('/nps/promedios').then(r => r.data.promedios || {}),
+    retry: 1
   });
 
 // ─── Seguimientos ───

@@ -44,6 +44,15 @@ const LINK_CATEGORIA_LABELS = {
 // Referencia estable para que los useMemo no se recalculen en cada render
 const SIN_DATOS = [];
 
+// El timeline trae como «virtuales» (id null) las sesiones antiguas que aún no tienen seguimiento:
+// se identifican por su sesión y el registro se crea la primera vez que el equipo las edita
+const claveSeg = (seg) => (seg ? (seg.id ?? `v-${seg.sesion_id}`) : undefined);
+const idSeguimiento = async (seg) => {
+  if (seg.id) return seg.id;
+  const { data } = await api.post('/seguimientos', { sesion_id: seg.sesion_id, emprendimiento_id: seg.emprendimiento_id });
+  return data.seguimientos[0].id;
+};
+
 const PESTANAS = ['timeline', 'diagnosticos', 'talleres', '1a1_programa', '1a1_taller', 'objetivos'];
 
 const SeguimientoV2 = () => {
@@ -255,7 +264,7 @@ const TimelineTab = ({ timeline, pendientes }) => {
           {timeline.map((seg) => {
             const tipoMeta = tipoSesion(seg.sesion?.tipo);
             return (
-              <li key={seg.id} className="relative pl-9 sm:pl-14">
+              <li key={claveSeg(seg)} className="relative pl-9 sm:pl-14">
                 <div className="absolute left-1 sm:left-4 top-5 w-5 h-5 rounded-full bg-white border-2 border-brand-cyan flex items-center justify-center z-10" aria-hidden="true">
                   <div className="w-2 h-2 rounded-full bg-brand-cyan"></div>
                 </div>
@@ -334,7 +343,7 @@ const DiagnosticosTab = ({ sesiones, invalidate }) => {
   const [guardando, setGuardando] = useState(false);
 
   const iniciarEdicion = (seg) => {
-    setEditandoSeg(seg.id);
+    setEditandoSeg(claveSeg(seg));
     setFormSeg({
       realizado: seg.realizado || '',
       observaciones: seg.observaciones || '',
@@ -351,10 +360,10 @@ const DiagnosticosTab = ({ sesiones, invalidate }) => {
 
   const obtenerEnlacesSesion = (seg) => (seg.sesion?.archivos || []).filter((archivo) => archivo.tipo === 'enlace' && archivo.url);
 
-  const guardarSeguimiento = async (segId) => {
+  const guardarSeguimiento = async (seg) => {
     setGuardando(true);
     try {
-      await api.put(`/seguimientos/${segId}`, formSeg);
+      await api.put(`/seguimientos/${await idSeguimiento(seg)}`, formSeg);
       toast.success('Diagnóstico actualizado');
       cancelarEdicion();
       invalidate('timeline');
@@ -430,7 +439,7 @@ const DiagnosticosTab = ({ sesiones, invalidate }) => {
           const seg = sorted.find(s => s.sesion?.tipo === tipo);
           const meta = tipoSesion(tipo);
           const TipoIcon = meta.icono;
-          const esEditando = editandoSeg === seg?.id;
+          const esEditando = editandoSeg === claveSeg(seg);
           const enlacesAdicionales = seg ? obtenerEnlacesSesion(seg) : [];
 
           return (
@@ -527,7 +536,7 @@ const DiagnosticosTab = ({ sesiones, invalidate }) => {
                       </fieldset>
                       <div className="flex justify-end gap-2">
                         <Button variante="ghost" tamanio="sm" onClick={cancelarEdicion}>Cancelar</Button>
-                        <Button tamanio="sm" icono={Save} cargando={guardando} onClick={() => guardarSeguimiento(seg.id)}>Guardar</Button>
+                        <Button tamanio="sm" icono={Save} cargando={guardando} onClick={() => guardarSeguimiento(seg)}>Guardar</Button>
                       </div>
                     </>
                   ) : (
@@ -595,10 +604,10 @@ const TalleresTab = ({ sesiones, invalidate }) => {
   const [formSeg, setFormSeg] = useState({ realizado: '', observaciones: '' });
   const [guardando, setGuardando] = useState(false);
 
-  const guardarSeguimiento = async (segId) => {
+  const guardarSeguimiento = async (seg) => {
     setGuardando(true);
     try {
-      await api.put(`/seguimientos/${segId}`, formSeg);
+      await api.put(`/seguimientos/${await idSeguimiento(seg)}`, formSeg);
       toast.success('Taller actualizado');
       setEditandoSeg(null);
       invalidate('timeline');
@@ -625,9 +634,9 @@ const TalleresTab = ({ sesiones, invalidate }) => {
     <div className="space-y-5">
       <p className="text-sm text-gray-500">Talleres del programa: sesiones grupales de formación y capacitación.</p>
       {sesiones.map((seg) => {
-        const esEditando = editandoSeg === seg.id;
+        const esEditando = editandoSeg === claveSeg(seg);
         return (
-          <div key={seg.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div key={claveSeg(seg)} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="bg-blue-50 px-4 sm:px-5 py-3 border-b border-blue-100 flex items-center justify-between gap-2">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
@@ -644,7 +653,7 @@ const TalleresTab = ({ sesiones, invalidate }) => {
                   icono={Edit3}
                   tamanioIcono={14}
                   tono="purple"
-                  onClick={() => { setEditandoSeg(seg.id); setFormSeg({ realizado: seg.realizado || '', observaciones: seg.observaciones || '' }); }}
+                  onClick={() => { setEditandoSeg(claveSeg(seg)); setFormSeg({ realizado: seg.realizado || '', observaciones: seg.observaciones || '' }); }}
                 />
               )}
             </div>
@@ -659,7 +668,7 @@ const TalleresTab = ({ sesiones, invalidate }) => {
                   </Field>
                   <div className="flex justify-end gap-2">
                     <Button variante="ghost" onClick={() => setEditandoSeg(null)}>Cancelar</Button>
-                    <Button icono={Save} cargando={guardando} onClick={() => guardarSeguimiento(seg.id)}>Guardar</Button>
+                    <Button icono={Save} cargando={guardando} onClick={() => guardarSeguimiento(seg)}>Guardar</Button>
                   </div>
                 </>
               ) : (
@@ -972,7 +981,7 @@ const SesionesEditableTab = ({ sesiones, invalidate, tipo }) => {
   const emptyLabel = esTaller ? 'sesiones 1 a 1 de taller' : 'sesiones 1 a 1 de programa';
 
   const iniciarEdicion = (seg) => {
-    setEditandoSeg(seg.id);
+    setEditandoSeg(claveSeg(seg));
     setFormSeg({
       realizado: seg.realizado || '',
       observaciones: seg.observaciones || '',
@@ -982,7 +991,7 @@ const SesionesEditableTab = ({ sesiones, invalidate, tipo }) => {
     });
   };
 
-  const guardarSeguimiento = async (segId) => {
+  const guardarSeguimiento = async (seg) => {
     setGuardando(true);
     try {
       const payload = {
@@ -994,7 +1003,7 @@ const SesionesEditableTab = ({ sesiones, invalidate, tipo }) => {
         payload.comentario_emprendedor = formSeg.comentario_emprendedor;
         payload.comentario_tallerista = formSeg.comentario_tallerista;
       }
-      await api.put(`/seguimientos/${segId}`, payload);
+      await api.put(`/seguimientos/${await idSeguimiento(seg)}`, payload);
       toast.success('Sesión actualizada');
       setEditandoSeg(null);
       invalidate('timeline');
@@ -1005,12 +1014,13 @@ const SesionesEditableTab = ({ sesiones, invalidate, tipo }) => {
     }
   };
 
-  const agregarCompromiso = async (segId) => {
-    const descripcion = (nuevosCompromisos[segId] || '').trim();
+  const agregarCompromiso = async (seg) => {
+    const clave = claveSeg(seg);
+    const descripcion = (nuevosCompromisos[clave] || '').trim();
     if (!descripcion) return;
     try {
-      await api.post(`/compromisos/seguimiento/${segId}`, { descripcion });
-      setNuevoCompromiso(segId, '');
+      await api.post(`/compromisos/seguimiento/${await idSeguimiento(seg)}`, { descripcion });
+      setNuevoCompromiso(clave, '');
       invalidate('timeline', 'compromisos-pendientes');
     } catch { toast.error('Error al crear compromiso'); }
   };
@@ -1042,9 +1052,9 @@ const SesionesEditableTab = ({ sesiones, invalidate, tipo }) => {
           : 'Sesiones continuas 1 a 1 del programa con el emprendimiento. Aquí se registran avances y compromisos entre sesiones.'}
       </p>
       {sesiones.map((seg) => {
-        const esEditando = editandoSeg === seg.id;
+        const esEditando = editandoSeg === claveSeg(seg);
         return (
-          <article key={seg.id} aria-labelledby={`sesion-${seg.id}-titulo`} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <article key={claveSeg(seg)} aria-labelledby={`sesion-${claveSeg(seg)}-titulo`} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             {/* Header */}
             <div className={`px-4 sm:px-5 py-3 border-b flex flex-wrap items-center justify-between gap-2 ${headerBg}`}>
               <div className="flex items-center gap-3 min-w-0">
@@ -1052,7 +1062,7 @@ const SesionesEditableTab = ({ sesiones, invalidate, tipo }) => {
                   <HeaderIcon size={16} className={headerIconColor} />
                 </div>
                 <div className="min-w-0">
-                  <h4 id={`sesion-${seg.id}-titulo`} className="font-bold text-brand-dark text-sm">{seg.sesion?.titulo}</h4>
+                  <h4 id={`sesion-${claveSeg(seg)}-titulo`} className="font-bold text-brand-dark text-sm">{seg.sesion?.titulo}</h4>
                   <p className="text-xs text-gray-500 flex flex-wrap items-center gap-x-1.5 gap-y-1 mt-0.5">
                     <Calendar size={12} aria-hidden="true" /> {formatFecha(seg.sesion?.fecha)}
                     {seg.enlace_grabacion && (
@@ -1102,7 +1112,7 @@ const SesionesEditableTab = ({ sesiones, invalidate, tipo }) => {
                   )}
                   <div className="flex justify-end gap-2">
                     <Button variante="ghost" onClick={() => setEditandoSeg(null)}>Cancelar</Button>
-                    <Button icono={Save} cargando={guardando} onClick={() => guardarSeguimiento(seg.id)}>Guardar</Button>
+                    <Button icono={Save} cargando={guardando} onClick={() => guardarSeguimiento(seg)}>Guardar</Button>
                   </div>
                 </>
               ) : (
@@ -1144,8 +1154,8 @@ const SesionesEditableTab = ({ sesiones, invalidate, tipo }) => {
 
               {/* Compromisos */}
               <div className="border-t border-gray-100 pt-4">
-                <p className="eyebrow mb-2" id={`compromisos-${seg.id}`}>Compromisos para la siguiente sesión</p>
-                <ul className="space-y-2" aria-labelledby={`compromisos-${seg.id}`}>
+                <p className="eyebrow mb-2" id={`compromisos-${claveSeg(seg)}`}>Compromisos para la siguiente sesión</p>
+                <ul className="space-y-2" aria-labelledby={`compromisos-${claveSeg(seg)}`}>
                   {seg.compromisoItems?.map(c => {
                     const est = estadoActividad(c.estado);
                     return (
@@ -1177,14 +1187,14 @@ const SesionesEditableTab = ({ sesiones, invalidate, tipo }) => {
                 {/* Agregar compromiso */}
                 <div className="flex gap-2 mt-2">
                   <Input
-                    value={nuevosCompromisos[seg.id] || ''}
-                    onChange={e => setNuevoCompromiso(seg.id, e.target.value)}
+                    value={nuevosCompromisos[claveSeg(seg)] || ''}
+                    onChange={e => setNuevoCompromiso(claveSeg(seg), e.target.value)}
                     aria-label={`Nuevo compromiso para ${seg.sesion?.titulo || 'la sesión'}`}
                     placeholder="Nuevo compromiso..."
                     className="flex-1 min-w-0"
-                    onKeyDown={e => e.key === 'Enter' && agregarCompromiso(seg.id)}
+                    onKeyDown={e => e.key === 'Enter' && agregarCompromiso(seg)}
                   />
-                  <Button variante="accent" icono={Plus} onClick={() => agregarCompromiso(seg.id)} className="shrink-0">Agregar</Button>
+                  <Button variante="accent" icono={Plus} onClick={() => agregarCompromiso(seg)} className="shrink-0">Agregar</Button>
                 </div>
               </div>
             </div>

@@ -1,9 +1,20 @@
 const { Op } = require('sequelize');
-const { Emprendimiento, Integrante, Usuario, Programa, Seguimiento, Archivo, Sesion } = require('../models');
+const { Emprendimiento, Integrante, Usuario, Programa, Seguimiento, Archivo, Sesion, Compromiso } = require('../models');
 const { generarPasswordAleatorio } = require('../utils/helpers');
 const { paginate, paginatedResponse } = require('../utils/pagination');
 const logger = require('../utils/logger');
 const { normalizeUserPayload } = require('../utils/userPayload');
+const { asegurarSeguimientosDeEmprendimiento } = require('../services/seguimientos');
+
+// Crea los seguimientos del emprendimiento para las sesiones de su programa. Si falla no se
+// pierde el cambio: el timeline muestra las sesiones igualmente y el registro se crea al editarlo.
+const prepararSeguimientos = async (emprendimientoId) => {
+  try {
+    await asegurarSeguimientosDeEmprendimiento(emprendimientoId);
+  } catch (error) {
+    logger.error('No se pudieron crear los seguimientos del emprendimiento', { emprendimientoId, error: error.message });
+  }
+};
 
 const crear = async (req, res) => {
   try {
@@ -20,6 +31,7 @@ const crear = async (req, res) => {
       sector,
       programa_id
     });
+    await prepararSeguimientos(emprendimiento.id);
 
     res.status(201).json({ mensaje: 'Emprendimiento creado exitosamente', emprendimiento });
   } catch (error) {
@@ -79,7 +91,9 @@ const obtenerPorId = async (req, res) => {
           as: 'seguimientos',
           attributes: ['id', 'realizado', 'compromisos', 'observaciones', 'estado_avance', 'enlace_grabacion', 'created_at'],
           include: [
-            { model: Sesion, as: 'sesion', attributes: ['id', 'titulo', 'fecha'] }
+            { model: Sesion, as: 'sesion', attributes: ['id', 'titulo', 'fecha'] },
+            // Compromisos de la tabla nueva; `compromisos` (texto) queda solo para datos antiguos
+            { model: Compromiso, as: 'compromisoItems', attributes: ['id', 'descripcion', 'estado', 'orden'] }
           ]
         },
         {
@@ -91,7 +105,8 @@ const obtenerPorId = async (req, res) => {
         }
       ],
       order: [
-        [{ model: Seguimiento, as: 'seguimientos' }, { model: Sesion, as: 'sesion' }, 'fecha', 'DESC']
+        [{ model: Seguimiento, as: 'seguimientos' }, { model: Sesion, as: 'sesion' }, 'fecha', 'DESC'],
+        [{ model: Seguimiento, as: 'seguimientos' }, { model: Compromiso, as: 'compromisoItems' }, 'orden', 'ASC']
       ]
     });
 
@@ -124,6 +139,8 @@ const actualizar = async (req, res) => {
     }
 
     const { nombre, descripcion, sector, estado, programa_id } = req.body;
+    const programaAnterior = emprendimiento.programa_id;
+    const estadoAnterior = emprendimiento.estado;
 
     await emprendimiento.update({
       nombre: nombre || emprendimiento.nombre,
@@ -132,6 +149,11 @@ const actualizar = async (req, res) => {
       estado: estado || emprendimiento.estado,
       programa_id: programa_id || emprendimiento.programa_id
     });
+
+    // Cambió de programa o volvió de «retirado»: faltan los seguimientos de las sesiones de su programa
+    if (emprendimiento.programa_id !== programaAnterior || (estadoAnterior === 'retirado' && emprendimiento.estado !== 'retirado')) {
+      await prepararSeguimientos(emprendimiento.id);
+    }
 
     res.json({ mensaje: 'Emprendimiento actualizado', emprendimiento });
   } catch (error) {

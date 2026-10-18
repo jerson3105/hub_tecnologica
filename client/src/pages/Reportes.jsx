@@ -10,6 +10,7 @@ import { ESTADOS_PROGRAMA, ESTADOS_EMPRENDIMIENTO, estadoDe } from '../constants
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import EmptyState from '../components/ui/EmptyState';
+import { textoCompromisos } from '../utils/compromisos';
 
 const Reportes = () => {
   const { data: programas = [], isLoading: l1 } = useProgramas();
@@ -26,7 +27,7 @@ const Reportes = () => {
     try {
       const [sesRes, npsRes] = await Promise.all([
         api.get('/sesiones', { params: { programa_id: programa.id } }),
-        api.get(`/nps/programa/${programa.id}`).catch(() => ({ data: { respuestas: [], nps: { score: 0, total: 0 } } }))
+        api.get(`/nps/programa/${programa.id}`)
       ]);
       const sesiones = sesRes.data.sesiones || [];
       const nps = npsRes.data.nps || { score: 0, total: 0, promotores: 0, pasivos: 0, detractores: 0 };
@@ -159,7 +160,7 @@ const Reportes = () => {
     try {
       const [empRes, opRes] = await Promise.all([
         api.get(`/emprendimientos/${emp.id}`),
-        api.get(`/one-pager/${emp.id}`).catch(() => ({ data: { onePager: null, completo: false } }))
+        api.get(`/one-pager/${emp.id}`)
       ]);
       const empDetalle = empRes.data.emprendimiento;
       const onePager = opRes.data.onePager;
@@ -261,8 +262,9 @@ const Reportes = () => {
             const lines = doc.splitTextToSize(`Realizado: ${seg.realizado}`, contentW - 8);
             doc.text(lines, margin + 8, y); y += lines.length * 3.5;
           }
-          if (seg.compromisos) {
-            const lines = doc.splitTextToSize(`Compromisos: ${seg.compromisos}`, contentW - 8);
+          const compromisosTexto = textoCompromisos(seg);
+          if (compromisosTexto) {
+            const lines = doc.splitTextToSize(`Compromisos: ${compromisosTexto}`, contentW - 8);
             doc.text(lines, margin + 8, y); y += lines.length * 3.5;
           }
           y += 3;

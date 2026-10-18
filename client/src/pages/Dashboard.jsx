@@ -6,6 +6,7 @@ import { tipoSesion } from '../constants/sesiones';
 import { ESTADOS_PROGRAMA, estadoDe } from '../constants/estados';
 import Badge from '../components/ui/Badge';
 import EmptyState from '../components/ui/EmptyState';
+import ErrorCarga from '../components/ui/ErrorCarga';
 
 const Dashboard = () => {
   const { data: programas = [], isLoading: l1 } = useProgramas();
@@ -13,7 +14,7 @@ const Dashboard = () => {
   const { data: sesiones = [], isLoading: l3 } = useSesiones();
   const { data: usuarios = [], isLoading: l4 } = useUsuarios();
   const { data: npsPromedios = {} } = useNpsPromedios();
-  const { data: npsResumen = [] } = useNpsResumen();
+  const { data: npsResumen = [], isError: errorNpsResumen, refetch: reintentarNpsResumen } = useNpsResumen();
 
   const cargando = l1 || l2 || l3 || l4;
   const sesionesRecientes = sesiones.slice(0, 5);
@@ -136,7 +137,9 @@ const Dashboard = () => {
               </div>
             </div>
           )}
-          {npsResumen.length === 0 ? (
+          {errorNpsResumen ? (
+            <ErrorCarga compacto mensaje="No se pudieron cargar las evaluaciones NPS." onReintentar={reintentarNpsResumen} />
+          ) : npsResumen.length === 0 ? (
             <EmptyState icono={BarChart3} tono="green" compacto sinMarco titulo="No hay evaluaciones NPS aún" />
           ) : (
             <div className="space-y-3">

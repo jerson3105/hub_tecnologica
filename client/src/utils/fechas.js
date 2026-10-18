@@ -12,6 +12,15 @@ export const parseFecha = (valor) => {
   return Number.isNaN(fecha.getTime()) ? null : fecha;
 };
 
+// true si la fecha es posterior a hoy en el calendario local (una sesión que aún no ocurre)
+export const esFutura = (valor) => {
+  const fecha = parseFecha(valor);
+  if (!fecha) return false;
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  return fecha > hoy;
+};
+
 export const formatFecha = (valor, opciones) => {
   const fecha = parseFecha(valor);
   return fecha ? fecha.toLocaleDateString('es-PE', opciones) : '';

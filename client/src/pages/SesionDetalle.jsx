@@ -4,15 +4,16 @@ import { useQuery } from '@tanstack/react-query';
 import api, { descargarArchivo } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useInvalidate } from '../hooks/useQueryHooks';
-import { ArrowLeft, Video, Users, ClipboardList, FileText, File, Image, Film, Link2, ExternalLink, Download, Star, Send, CheckCircle2, Plus, Save, XCircle } from 'lucide-react';
+import { ArrowLeft, Video, Users, ClipboardList, FileText, File, Image, Film, Link2, ExternalLink, Download, Star, Send, CheckCircle2, Plus, Save, XCircle, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { tipoSesion } from '../constants/sesiones';
 import { CATEGORIAS_ARCHIVO, estadoDe, ESTADOS_AVANCE } from '../constants/estados';
-import { formatFecha } from '../utils/fechas';
+import { formatFecha, esFutura } from '../utils/fechas';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import IconButton from '../components/ui/IconButton';
 import EmptyState from '../components/ui/EmptyState';
+import ListaCompromisos from '../components/ListaCompromisos';
 import { Field, Input, Textarea } from '../components/ui/Field';
 import { clasesIconButton } from '../components/ui/estilos';
 
@@ -54,6 +55,8 @@ const SesionDetalle = () => {
   const npsPromedio = npsData?.promedio || 0;
 
   const npsEnviado = npsEnviadoLocal || (npsPendientes && !npsPendientes.includes(parseInt(id)));
+  // Las sesiones futuras no se evalúan (el servidor también lo rechaza)
+  const sesionFutura = esFutura(sesion?.fecha);
 
   // Group asistencias by emprendimiento
   const asistenciasPorEmp = useMemo(() => {
@@ -207,12 +210,7 @@ const SesionDetalle = () => {
                         <p className="text-sm text-gray-700 mt-0.5">{seg.realizado}</p>
                       </div>
                     )}
-                    {seg.compromisos && (
-                      <div className="mb-2">
-                        <p className="eyebrow">Compromisos</p>
-                        <p className="text-sm text-gray-700 mt-0.5">{seg.compromisos}</p>
-                      </div>
-                    )}
+                    <ListaCompromisos seguimiento={seg} />
                     {seg.enlace_grabacion && (
                       <div className="flex items-center gap-2 mt-3 bg-brand-cyan/5 border border-brand-cyan/10 rounded-xl px-3 py-2 w-fit">
                         <Video size={14} className="text-brand-cyan-ink" aria-hidden="true" />
@@ -474,7 +472,13 @@ const SesionDetalle = () => {
             <div className="p-1.5 bg-amber-100 rounded-lg"><Star size={18} className="text-amber-500" aria-hidden="true" /></div>
             <h2 className="text-lg font-semibold text-brand-dark">Evaluación de la Sesión</h2>
           </div>
-          {npsEnviado ? (
+          {sesionFutura ? (
+            <div className="text-center py-10 px-5">
+              <Clock size={40} className="mx-auto text-gray-500 mb-3" aria-hidden="true" />
+              <p className="text-brand-dark font-semibold">Podrás evaluar esta sesión cuando se haya realizado</p>
+              <p className="text-gray-500 text-sm mt-1">Fecha prevista: {formatFecha(sesion.fecha, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+            </div>
+          ) : npsEnviado ? (
             <div className="text-center py-10">
               <CheckCircle2 size={40} className="mx-auto text-brand-green-ink mb-3" aria-hidden="true" />
               <p className="text-brand-green-ink font-semibold">Ya enviaste tu evaluación para esta sesión</p>

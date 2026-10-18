@@ -17,7 +17,9 @@ router.get('/pendientes/:emprendimiento_id', ctrl.obtenerPendientesPorEmprendimi
 
 // Escritura: los compromisos los registra el equipo de la incubadora
 router.post('/seguimiento/:seguimiento_id', esAdmin, ctrl.crear);
-router.put('/:id', esAdmin, ctrl.actualizarEstado);
 router.delete('/:id', esAdmin, ctrl.eliminar);
+
+// Estado: el admin o un integrante del emprendimiento (solo el estado; se valida en el controlador)
+router.put('/:id', ctrl.actualizarEstado);
 
 module.exports = router;

@@ -1,6 +1,6 @@
 const { Compromiso, Seguimiento, Sesion, Emprendimiento, Programa, Archivo } = require('../models');
 const logger = require('../utils/logger');
-const { puedeAccederEmprendimiento, denegar } = require('../utils/acceso');
+const { puedeAccederEmprendimiento, denegar, esAdmin } = require('../utils/acceso');
 
 const obtenerPorSeguimiento = async (req, res) => {
   try {
@@ -76,18 +76,33 @@ const crear = async (req, res) => {
   }
 };
 
+const ESTADOS_VALIDOS = ['planeado', 'en_progreso', 'completado', 'no_logrado'];
+
 const actualizarEstado = async (req, res) => {
   try {
     const { id } = req.params;
     const { estado, seguimiento_revision_id } = req.body;
 
-    const compromiso = await Compromiso.findByPk(id);
+    if (estado !== undefined && !ESTADOS_VALIDOS.includes(estado)) {
+      return res.status(400).json({ mensaje: 'Estado no válido' });
+    }
+
+    const compromiso = await Compromiso.findByPk(id, {
+      include: [{ model: Seguimiento, as: 'seguimientoOrigen', attributes: ['emprendimiento_id'] }]
+    });
     if (!compromiso) return res.status(404).json({ mensaje: 'Compromiso no encontrado' });
 
-    await compromiso.update({
-      estado: estado || compromiso.estado,
-      seguimiento_revision_id: seguimiento_revision_id || compromiso.seguimiento_revision_id
-    });
+    // El emprendedor puede marcar los compromisos de su propio emprendimiento
+    if (!(await puedeAccederEmprendimiento(req.usuario, compromiso.seguimientoOrigen?.emprendimiento_id))) {
+      return denegar(res, 'No tienes acceso a este compromiso');
+    }
+
+    const cambios = { estado: estado || compromiso.estado };
+    // Vincular la revisión a un seguimiento es parte del registro de la sesión: solo el equipo
+    if (esAdmin(req.usuario) && seguimiento_revision_id) {
+      cambios.seguimiento_revision_id = seguimiento_revision_id;
+    }
+    await compromiso.update(cambios);
     res.json({ compromiso });
   } catch (error) {
     logger.error('Error al actualizar compromiso', { error: error.message });
@@ -116,78 +131,38 @@ const timelineEmprendimiento = async (req, res) => {
       return denegar(res, 'No tienes acceso a este emprendimiento');
     }
 
-    // Obtener el programa del emprendimiento
     const emp = await Emprendimiento.findByPk(emprendimiento_id, { attributes: ['id', 'programa_id'] });
     if (!emp) return res.status(404).json({ mensaje: 'Emprendimiento no encontrado' });
+    const empId = Number(emprendimiento_id);
 
-    // Obtener todas las sesiones del programa via sesion_programas
-    const sesiones = await Sesion.findAll({
-      include: [{
-        model: Programa,
-        as: 'programas',
-        through: { attributes: [] },
-        where: { id: emp.programa_id },
-        required: true
-      }],
-      attributes: ['id'],
-      order: [['fecha', 'ASC']]
-    });
+    const includeSesion = [
+      { model: Programa, as: 'programa', attributes: ['id', 'nombre'] },
+      {
+        model: Archivo,
+        as: 'archivos',
+        required: false,
+        attributes: ['id', 'tipo', 'nombre_original', 'url', 'categoria', 'created_at'],
+        include: [
+          {
+            model: Emprendimiento,
+            as: 'emprendimientos',
+            attributes: ['id', 'nombre'],
+            through: { attributes: [] },
+            required: false
+          }
+        ]
+      }
+    ];
+    const atributosSesion = ['id', 'titulo', 'fecha', 'tipo', 'enlace_grabacion'];
 
-    // Obtener seguimientos existentes para este emprendimiento
-    const existentes = await Seguimiento.findAll({
-      where: { emprendimiento_id },
-      attributes: ['sesion_id']
-    });
-    const sesionesConSeg = new Set(existentes.map(s => s.sesion_id));
-
-    // Auto-crear seguimientos faltantes
-    const faltantes = sesiones.filter(s => !sesionesConSeg.has(s.id));
-    if (faltantes.length > 0) {
-      await Seguimiento.bulkCreate(
-        faltantes.map(s => ({
-          sesion_id: s.id,
-          emprendimiento_id: parseInt(emprendimiento_id),
-          estado_avance: 'sin_iniciar'
-        })),
-        { ignoreDuplicates: true }
-      );
-    }
-
-    // Consultar todos los seguimientos con sus relaciones
+    // Solo lectura: los seguimientos se crean al crear la sesión o el emprendimiento
+    // (services/seguimientos.js), no al consultar el timeline
     const seguimientos = await Seguimiento.findAll({
       where: { emprendimiento_id },
       include: [
-        {
-          model: Sesion,
-          as: 'sesion',
-          attributes: ['id', 'titulo', 'fecha', 'tipo', 'enlace_grabacion'],
-          include: [
-            { model: Programa, as: 'programa', attributes: ['id', 'nombre'] },
-            {
-              model: Archivo,
-              as: 'archivos',
-              required: false,
-              attributes: ['id', 'tipo', 'nombre_original', 'url', 'categoria', 'created_at'],
-              include: [
-                {
-                  model: Emprendimiento,
-                  as: 'emprendimientos',
-                  attributes: ['id', 'nombre'],
-                  through: { attributes: [] },
-                  required: false
-                }
-              ]
-            }
-          ]
-        },
-        {
-          model: Compromiso,
-          as: 'compromisoItems'
-        },
-        {
-          model: Compromiso,
-          as: 'compromisosRevisados'
-        }
+        { model: Sesion, as: 'sesion', attributes: atributosSesion, include: includeSesion },
+        { model: Compromiso, as: 'compromisoItems' },
+        { model: Compromiso, as: 'compromisosRevisados' }
       ],
       // Sequelize ignora `order` dentro de un include: el orden anidado va aquí
       order: [
@@ -196,24 +171,48 @@ const timelineEmprendimiento = async (req, res) => {
       ]
     });
 
-    const empId = Number(emprendimiento_id);
-    seguimientos.forEach((seg) => {
-      if (!seg.sesion?.archivos) {
-        return;
-      }
+    // Sesiones del programa que aún no tienen seguimiento (datos anteriores a este cambio):
+    // se devuelven como entradas virtuales; el equipo las crea al editarlas por primera vez
+    const conSeguimiento = new Set(seguimientos.map((s) => s.sesion_id));
+    const sesionesPrograma = await Sesion.findAll({
+      include: [{ model: Programa, as: 'programas', through: { attributes: [] }, where: { id: emp.programa_id }, required: true, attributes: [] }],
+      attributes: ['id']
+    });
+    const faltantes = sesionesPrograma.map((s) => s.id).filter((id) => !conSeguimiento.has(id));
+    const sesionesFaltantes = faltantes.length
+      ? await Sesion.findAll({ where: { id: faltantes }, attributes: atributosSesion, include: includeSesion })
+      : [];
 
-      const archivosFiltrados = seg.sesion.archivos.filter((archivo) => {
-        if (!archivo.emprendimientos || archivo.emprendimientos.length === 0) {
-          return true;
-        }
+    const virtuales = sesionesFaltantes.map((sesion) => ({
+      id: null,
+      virtual: true,
+      sesion_id: sesion.id,
+      emprendimiento_id: empId,
+      realizado: null,
+      compromisos: null,
+      observaciones: null,
+      estado_avance: 'sin_iniciar',
+      enlace_grabacion: null,
+      comentario_emprendedor: null,
+      comentario_tallerista: null,
+      sesion: sesion.toJSON(),
+      compromisoItems: [],
+      compromisosRevisados: []
+    }));
 
-        return archivo.emprendimientos.some((empArchivo) => empArchivo.id === empId);
-      });
+    const resultado = [...seguimientos.map((s) => s.toJSON()), ...virtuales]
+      .sort((a, b) => String(a.sesion?.fecha || '').localeCompare(String(b.sesion?.fecha || '')));
 
-      seg.sesion.setDataValue('archivos', archivosFiltrados);
+    // Archivos de la sesión: los generales y los asignados a este emprendimiento
+    resultado.forEach((seg) => {
+      if (!seg.sesion?.archivos) return;
+      seg.sesion.archivos = seg.sesion.archivos.filter((archivo) =>
+        !archivo.emprendimientos || archivo.emprendimientos.length === 0 ||
+        archivo.emprendimientos.some((empArchivo) => empArchivo.id === empId)
+      );
     });
 
-    res.json({ seguimientos });
+    res.json({ seguimientos: resultado });
   } catch (error) {
     logger.error('Error al obtener timeline', { error: error.message });
     res.status(500).json({ mensaje: 'Error al obtener timeline' });

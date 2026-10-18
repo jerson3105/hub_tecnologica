@@ -5,6 +5,9 @@ import { formatFecha } from '../utils/fechas';
 import { tipoSesion } from '../constants/sesiones';
 import Badge from '../components/ui/Badge';
 import EmptyState from '../components/ui/EmptyState';
+import toast from 'react-hot-toast';
+import { useInvalidate } from '../hooks/useQueryHooks';
+import { ESTADOS_ACTIVIDAD, estadoActividad } from '../constants/estados';
 import {
   ClipboardList, Calendar, FolderKanban, Rocket, AlertCircle, Video,
   FileSearch, BookOpen, Presentation, UserCheck
@@ -31,6 +34,43 @@ const ContenidoCompromiso = ({ compromiso }) => {
       <span className={`w-2 h-2 rounded-full flex-shrink-0 ${est?.dot || ''}`} aria-hidden="true"></span>
       <span className="text-sm text-gray-700 flex-1 min-w-0 break-words">{compromiso.descripcion}</span>
       {est && <Badge tono={est.tono} forma="tag" className="shrink-0">{est.label}</Badge>}
+    </>
+  );
+};
+
+// Compromiso pendiente cuyo estado puede cambiar el propio emprendedor
+const CompromisoEditable = ({ compromiso }) => {
+  const invalidate = useInvalidate();
+  const [guardando, setGuardando] = useState(false);
+  const est = estadoActividad(compromiso.estado);
+
+  const cambiar = async (estado) => {
+    setGuardando(true);
+    try {
+      await api.put(`/compromisos/${compromiso.id}`, { estado });
+      toast.success(`Compromiso marcado como «${estadoActividad(estado).label.toLowerCase()}»`);
+      invalidate('compromisos-pendientes', 'timeline');
+    } catch (error) {
+      toast.error(error.response?.data?.mensaje || 'No se pudo actualizar el compromiso');
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <>
+      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${ESTADO_ACT[compromiso.estado]?.dot || ''}`} aria-hidden="true"></span>
+      <span className="text-sm text-gray-700 flex-1 min-w-0 break-words">{compromiso.descripcion}</span>
+      <select
+        value={compromiso.estado}
+        onChange={(e) => cambiar(e.target.value)}
+        disabled={guardando}
+        aria-busy={guardando || undefined}
+        aria-label={`Estado de «${compromiso.descripcion}»`}
+        className={`shrink-0 min-h-9 px-2 rounded-md text-xs font-semibold border-0 cursor-pointer disabled:opacity-60 ${est.color}`}
+      >
+        {Object.entries(ESTADOS_ACTIVIDAD).map(([valor, { label }]) => <option key={valor} value={valor}>{label}</option>)}
+      </select>
     </>
   );
 };
@@ -178,10 +218,11 @@ const TimelineTab = ({ timeline, pendientes }) => {
           <h3 className="font-bold text-amber-800 text-sm flex items-center gap-2 mb-3">
             <AlertCircle size={16} aria-hidden="true" /> Compromisos pendientes
           </h3>
+          <p className="text-sm text-amber-800 -mt-1 mb-3">Cuando avances en uno, actualiza su estado aquí.</p>
           <ul className="space-y-2">
             {pendientes.map(c => (
-              <li key={c.id} className="flex items-center gap-3 bg-white rounded-xl px-4 py-2.5 border border-amber-100">
-                <ContenidoCompromiso compromiso={c} />
+              <li key={c.id} className="flex flex-wrap items-center gap-3 bg-white rounded-xl px-4 py-2.5 border border-amber-100">
+                <CompromisoEditable compromiso={c} />
               </li>
             ))}
           </ul>
@@ -195,7 +236,7 @@ const TimelineTab = ({ timeline, pendientes }) => {
           {[...timeline].reverse().map((seg) => {
             const tipo = tipoSesion(seg.sesion?.tipo);
             return (
-              <li key={seg.id} className="relative pl-14">
+              <li key={seg.id ?? `v-${seg.sesion_id}`} className="relative pl-14">
                 <div className="absolute left-4 top-5 w-5 h-5 rounded-full bg-white border-2 border-brand-cyan flex items-center justify-center z-10" aria-hidden="true">
                   <div className="w-2 h-2 rounded-full bg-brand-cyan"></div>
                 </div>
@@ -264,7 +305,7 @@ const SesionesReadOnlyTab = ({ sesiones, tipo }) => {
   return (
     <ul className="space-y-4">
       {sesiones.map((seg) => (
-        <li key={seg.id} className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+        <li key={seg.id ?? `v-${seg.sesion_id}`} className="bg-white rounded-2xl border shadow-sm overflow-hidden">
           <div className={`px-5 py-3 border-b flex items-center gap-3 ${cfg.color}`}>
             <div className="w-8 h-8 rounded-lg bg-white/80 flex items-center justify-center shrink-0">
               <Icon size={16} className={cfg.iconColor} aria-hidden="true" />

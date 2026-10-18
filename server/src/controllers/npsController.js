@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 const logger = require('../utils/logger');
 const { puedeAccederSesion } = require('../utils/acceso');
+const { hoyLocal, esFutura } = require('../utils/fechas');
 
 const crear = async (req, res) => {
   try {
@@ -16,6 +17,15 @@ const crear = async (req, res) => {
     }
     if (!(await puedeAccederSesion(req.usuario, sesion_id))) {
       return res.status(403).json({ mensaje: 'No puedes evaluar una sesión de otro programa' });
+    }
+
+    // Solo se evalúa lo que ya ocurrió
+    const sesion = await Sesion.findByPk(sesion_id, { attributes: ['id', 'fecha'] });
+    if (!sesion) {
+      return res.status(404).json({ mensaje: 'Sesión no encontrada' });
+    }
+    if (esFutura(sesion.fecha)) {
+      return res.status(400).json({ mensaje: 'Podrás evaluar esta sesión cuando se haya realizado' });
     }
 
     // Prevenir duplicados: un usuario solo puede dar NPS una vez por sesión
@@ -178,8 +188,10 @@ const misPendientes = async (req, res) => {
       return res.json({ pendientes: [] });
     }
 
-    // Obtener todas las sesiones accesibles para el emprendedor via sesion_programas
+    // Sesiones ya realizadas (hasta hoy, en hora de Perú) de los programas del emprendedor:
+    // las futuras no se pueden evaluar todavía
     const sesiones = await Sesion.findAll({
+      where: { fecha: { [Op.lte]: hoyLocal() } },
       include: [{
         model: Programa,
         as: 'programas',

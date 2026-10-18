@@ -3,16 +3,17 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import Modal from '../components/Modal';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Edit, Trash2, Eye, CalendarDays, Video, Star, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, CalendarDays, Video, Star, AlertCircle, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useQuery } from '@tanstack/react-query';
 import { useProgramas, useNpsPromedios, useInvalidate } from '../hooks/useQueryHooks';
-import { formatFecha } from '../utils/fechas';
+import { formatFecha, esFutura } from '../utils/fechas';
 import { tipoSesion } from '../constants/sesiones';
 import Badge from '../components/ui/Badge';
 import IconButton from '../components/ui/IconButton';
 import Button from '../components/ui/Button';
 import EmptyState from '../components/ui/EmptyState';
+import ErrorCarga from '../components/ui/ErrorCarga';
 import { Field, Input, Select, Textarea } from '../components/ui/Field';
 import { FILTRO_CLS, ETIQUETA_CLS, clasesIconButton } from '../components/ui/estilos';
 
@@ -37,10 +38,10 @@ const Sesiones = () => {
     queryFn: () => api.get('/sesiones', { params: sesParams }).then(r => r.data.sesiones)
   });
   const { data: programas = [], isLoading: l2 } = useProgramas();
-  const { data: npsPromedios = {} } = useNpsPromedios();
-  const { data: npsPendientesArr = [] } = useQuery({
+  const { data: npsPromedios = {}, isError: errorPromedios, refetch: reintentarPromedios } = useNpsPromedios();
+  const { data: npsPendientesArr = [], isError: errorPendientes, refetch: reintentarPendientes } = useQuery({
     queryKey: ['nps', 'mis-pendientes'],
-    queryFn: () => api.get('/nps/mis-pendientes').then(r => r.data.pendientes || []).catch(() => []),
+    queryFn: () => api.get('/nps/mis-pendientes').then(r => r.data.pendientes || []),
     enabled: !esAdmin
   });
   const npsPendientes = new Set(npsPendientesArr);
@@ -135,6 +136,15 @@ const Sesiones = () => {
         </div>
       </div>
 
+      {(esAdmin ? errorPromedios : errorPendientes) && (
+        <ErrorCarga
+          compacto
+          className="bg-red-50 border border-red-200 rounded-2xl"
+          mensaje={esAdmin ? 'No se pudieron cargar las evaluaciones NPS de las sesiones.' : 'No se pudieron cargar tus evaluaciones pendientes.'}
+          onReintentar={esAdmin ? reintentarPromedios : reintentarPendientes}
+        />
+      )}
+
       {sesiones.length === 0 ? (
         <EmptyState
           icono={CalendarDays}
@@ -210,10 +220,14 @@ const Sesiones = () => {
                               <span className="text-xs text-gray-500">({npsPromedios[ses.id].total})</span>
                             </Link>
                           ) : (
-                            <span className="text-gray-500 text-xs">Sin evaluar</span>
+                            <span className="text-gray-500 text-xs">{errorPromedios ? '—' : 'Sin evaluar'}</span>
                           )
                         ) : (
-                          npsPendientes.has(ses.id) ? (
+                          errorPendientes ? (
+                            <span className="text-xs text-gray-500" aria-label="Sin datos">—</span>
+                          ) : esFutura(ses.fecha) ? (
+                            <span className="flex items-center gap-1 text-gray-500 text-xs font-medium"><Clock size={12} aria-hidden="true" /> Próxima</span>
+                          ) : npsPendientes.has(ses.id) ? (
                             <Link to={`/sesiones/${ses.id}`} className="flex items-center gap-1 px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-full text-xs font-semibold w-fit">
                               <AlertCircle size={12} aria-hidden="true" /> Pendiente
                             </Link>

@@ -1,7 +1,18 @@
-const { Sesion, SesionPrograma, Programa, Seguimiento, Emprendimiento, Asistencia, Usuario, Archivo, Integrante } = require('../models');
+const { Sesion, SesionPrograma, Programa, Seguimiento, Emprendimiento, Asistencia, Usuario, Archivo, Integrante, Compromiso } = require('../models');
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
 const { puedeAccederSesion, emprendimientoIdsDeUsuario } = require('../utils/acceso');
+const { asegurarSeguimientosDeSesion } = require('../services/seguimientos');
+
+// Crea el seguimiento de cada emprendimiento de los programas de la sesión. Si falla no se
+// pierde la sesión: el timeline muestra la sesión igualmente y el registro se crea al editarlo.
+const prepararSeguimientos = async (sesionId) => {
+  try {
+    await asegurarSeguimientosDeSesion(sesionId);
+  } catch (error) {
+    logger.error('No se pudieron crear los seguimientos de la sesión', { sesionId, error: error.message });
+  }
+};
 
 const crear = async (req, res) => {
   try {
@@ -27,6 +38,7 @@ const crear = async (req, res) => {
     });
 
     await SesionPrograma.bulkCreate(ids.map(pid => ({ sesion_id: sesion.id, programa_id: pid })));
+    await prepararSeguimientos(sesion.id);
 
     res.status(201).json({ mensaje: 'Sesión creada exitosamente', sesion });
   } catch (error) {
@@ -110,7 +122,9 @@ const obtenerPorId = async (req, res) => {
         // Un emprendedor solo ve el seguimiento de sus emprendimientos (ninguno si no tiene)
         ...(esEmprendedor ? { where: { emprendimiento_id: misEmprendimientoIds } } : {}),
         include: [
-          { model: Emprendimiento, as: 'emprendimiento', attributes: ['id', 'nombre'] }
+          { model: Emprendimiento, as: 'emprendimiento', attributes: ['id', 'nombre'] },
+          // Compromisos de la tabla nueva; `compromisos` (texto) queda solo para datos antiguos
+          { model: Compromiso, as: 'compromisoItems', attributes: ['id', 'descripcion', 'estado', 'orden'] }
         ]
       },
       {
@@ -142,7 +156,10 @@ const obtenerPorId = async (req, res) => {
       });
     }
 
-    const sesion = await Sesion.findByPk(req.params.id, { include });
+    const sesion = await Sesion.findByPk(req.params.id, {
+      include,
+      order: [[{ model: Seguimiento, as: 'seguimientos' }, { model: Compromiso, as: 'compromisoItems' }, 'orden', 'ASC']]
+    });
 
     if (!sesion) {
       return res.status(404).json({ mensaje: 'Sesión no encontrada' });
@@ -185,6 +202,7 @@ const actualizar = async (req, res) => {
       await SesionPrograma.destroy({ where: { sesion_id: sesion.id } });
       await SesionPrograma.bulkCreate(ids.map(pid => ({ sesion_id: sesion.id, programa_id: pid })));
       await sesion.update({ programa_id: ids.length === 1 ? ids[0] : null });
+      await prepararSeguimientos(sesion.id);
     }
 
     await sesion.update({
