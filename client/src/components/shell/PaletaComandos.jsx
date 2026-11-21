@@ -40,16 +40,16 @@ const PaletaComandos = ({ abierta, onCerrar, nav, esAdmin }) => {
     const acciones = [
       ...(esAdmin ? [
         { id: 'a-sesion', titulo: 'Nueva sesión', icono: Plus, ir: '/sesiones?nueva=1' },
-        { id: 'a-registro', titulo: 'Registrar seguimiento', icono: Plus, ir: '/seguimientos' },
-        { id: 'a-manual', titulo: 'Manual de uso (PDF)', detalle: 'Guía del equipo técnico', icono: BookOpen, hacer: () => descargarInforme('manual'), claves: 'manual guia ayuda' }
+        { id: 'a-registro', titulo: 'Registrar seguimiento', icono: Plus, ir: '/seguimientos' }
       ] : []),
+      { id: 'a-manual', titulo: 'Manual de uso (PDF)', detalle: esAdmin ? 'Guía del equipo técnico' : 'Guía del emprendedor', icono: BookOpen, hacer: () => descargarInforme(esAdmin ? 'manual' : 'manualEmprendedor'), claves: 'manual guia ayuda' },
       { id: 'a-claro', titulo: 'Tema claro', icono: Sun, hacer: () => cambiarTema('claro') },
       { id: 'a-oscuro', titulo: 'Tema oscuro', icono: Moon, hacer: () => cambiarTema('oscuro') },
       { id: 'a-sistema', titulo: 'Tema del sistema', icono: Monitor, hacer: () => cambiarTema('sistema') }
     ];
     const lista = [
       { titulo: 'Ir a', items: enlacesDe(nav).filter((e) => coincide(e.label)).map((e) => ({ id: `p${e.to}`, titulo: e.label, icono: e.icono, ir: e.to })) },
-      { titulo: 'Acciones', items: q ? acciones.filter((a) => coincide(a.titulo, a.claves)) : acciones.slice(0, esAdmin ? 3 : 0) },
+      { titulo: 'Acciones', items: q ? acciones.filter((a) => coincide(a.titulo, a.claves)) : acciones.slice(0, esAdmin ? 3 : 1) },
       { titulo: 'Emprendimientos', items: q ? (emprendimientos.data || []).filter((e) => coincide(e.nombre, e.sector)).map((e) => ({ id: `e${e.id}`, titulo: e.nombre, detalle: e.programa?.nombre, icono: Rocket, ir: `/emprendimientos/${e.id}` })) : [] },
       { titulo: 'Programas', items: q ? (programas.data || []).filter((p) => coincide(p.nombre)).map((p) => ({ id: `g${p.id}`, titulo: p.nombre, icono: FolderKanban, ir: `/programas/${p.id}` })) : [] },
       { titulo: 'Sesiones', items: q ? (sesiones.data || []).filter((s) => coincide(s.titulo)).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha))).map((s) => ({ id: `s${s.id}`, titulo: s.titulo, detalle: formatFecha(s.fecha, { day: 'numeric', month: 'short', year: 'numeric' }), icono: CalendarDays, ir: `/sesiones/${s.id}` })) : [] },

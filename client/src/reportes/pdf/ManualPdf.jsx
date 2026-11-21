@@ -2,10 +2,11 @@ import { View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import { C } from './marca';
 import { Informe, Portada, Tabla } from './componentes';
 import { MANUAL } from '../manual/contenido';
+import { MANUAL_EMPRENDEDOR } from '../manual/contenidoEmprendedor';
 
-// Manual de uso del equipo técnico (A4, misma marca que los informes). El contenido vive en
-// reportes/manual/contenido.js; aquí solo se maqueta. Las capturas se sirven desde
-// public/manual/ y se cargan por URL.
+// Manuales de uso (A4, misma marca que los informes): el del equipo técnico
+// (reportes/manual/contenido.js) y el del emprendedor (contenidoEmprendedor.js); aquí solo se
+// maqueta. Las capturas se sirven desde public/manual/ y se cargan por URL.
 
 const s = StyleSheet.create({
   indiceFila: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 4.5, borderBottomWidth: 0.6, borderBottomColor: C.borde },
@@ -159,21 +160,23 @@ const numerar = (capitulos) => {
 };
 
 const ManualPdf = ({ logo, datos = {} }) => {
-  const numerados = numerar(MANUAL.capitulos);
+  // Dos manuales con la misma maqueta: el del equipo técnico y el del emprendedor (datos.manual)
+  const manual = datos.manual === 'emprendedor' ? MANUAL_EMPRENDEDOR : MANUAL;
+  const numerados = numerar(manual.capitulos);
   return (
-    <Informe titulo={MANUAL.titulo} alcance={`Versión ${MANUAL.version}`}>
+    <Informe titulo={manual.titulo} alcance={`Versión ${manual.version}`}>
       <Portada
         logo={logo}
         eyebrow="Guía de uso"
-        titulo={MANUAL.titulo}
-        subtitulo={MANUAL.subtitulo}
-        meta={[['Versión', MANUAL.version], ['Actualizada', MANUAL.fecha], ['Dirección', MANUAL.url]]}
+        titulo={manual.titulo}
+        subtitulo={manual.subtitulo}
+        meta={[['Versión', manual.version], ['Actualizada', manual.fecha], ['Dirección', manual.url]]}
       />
       <View style={{ marginTop: 18 }}>
-        <Rico style={[s.parrafo, { fontSize: 10.5, color: C.suave }]}>{MANUAL.presentacion}</Rico>
+        <Rico style={[s.parrafo, { fontSize: 10.5, color: C.suave }]}>{manual.presentacion}</Rico>
       </View>
 
-      <Rico style={s.creditos}>{MANUAL.convenciones}</Rico>
+      <Rico style={s.creditos}>{manual.convenciones}</Rico>
       {/* El índice va en su propia página: con los resúmenes no cabe junto a la portada */}
       <View break>
         <Subtitulo texto="Contenido" />

@@ -39,6 +39,7 @@ const CARGAS = {
   },
   // Manual de uso del equipo técnico: contenido fijo (reportes/manual) y capturas de public/manual
   manual: async () => ({ datos: {}, archivo: ['Manual-equipo-tecnico-HUB', new Date().toLocaleDateString('en-CA')] }),
+  manualEmprendedor: async () => ({ datos: { manual: 'emprendedor' }, archivo: ['Manual-del-emprendedor-HUB', new Date().toLocaleDateString('en-CA')] }),
   onepager: async (id) => {
     const [detalle, onePager] = await Promise.all([
       api.get(`/emprendimientos/${id}`),
@@ -82,6 +83,9 @@ export const descargarInforme = async (tipo, id) => {
     toast.error(error.response?.data?.mensaje || 'No se pudo generar el PDF', { id: toastId });
   }
 };
+
+// Manual de uso que corresponde al rol del usuario
+export const manualDe = (usuario) => (usuario?.rol === 'admin' ? 'manual' : 'manualEmprendedor');
 
 // Botones de descarga: marca cuál se está generando para mostrar su estado de carga
 export const useDescargarInforme = () => {

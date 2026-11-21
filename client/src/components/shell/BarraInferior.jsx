@@ -4,7 +4,7 @@ import { Menu, User, LogOut, BookOpen } from 'lucide-react';
 import Modal from '../Modal';
 import SelectorTema from './SelectorTema';
 import { enlacesDe } from './navegacion';
-import { descargarInforme } from '../../reportes/descargarInforme';
+import { descargarInforme, manualDe } from '../../reportes/descargarInforme';
 
 const textoContador = (valor) => (valor === '!' ? ', pendiente' : valor ? `, ${valor}` : '');
 
@@ -95,11 +95,9 @@ const BarraInferior = ({ nav, conteos, usuario, onSalir }) => {
             <Link to="/perfil" onClick={() => setMas(false)} className="flex min-h-11 items-center gap-3 rounded-control px-2 text-sm font-medium hover:bg-muted">
               <User size={18} aria-hidden="true" />Mi perfil
             </Link>
-            {usuario?.rol === 'admin' && (
-              <button type="button" onClick={() => { setMas(false); descargarInforme('manual'); }} className="flex min-h-11 items-center gap-3 rounded-control px-2 text-left text-sm font-medium hover:bg-muted">
-                <BookOpen size={18} aria-hidden="true" />Manual de uso (PDF)
-              </button>
-            )}
+            <button type="button" onClick={() => { setMas(false); descargarInforme(manualDe(usuario)); }} className="flex min-h-11 items-center gap-3 rounded-control px-2 text-left text-sm font-medium hover:bg-muted">
+              <BookOpen size={18} aria-hidden="true" />Manual de uso (PDF)
+            </button>
             <button type="button" onClick={() => { setMas(false); onSalir(); }} className="flex min-h-11 items-center gap-3 rounded-control px-2 text-left text-sm font-medium text-danger hover:bg-danger-soft">
               <LogOut size={18} aria-hidden="true" />Cerrar sesión
             </button>

@@ -68,7 +68,7 @@ export const MANUAL = {
         } },
         { p: 'En escritorio puedes plegar el menú con «Plegar menú» para ganar espacio; queda solo con íconos y el nombre aparece al pasar el ratón. Los números junto a una opción indican asuntos pendientes.' },
         { sub: 'Buscar o ir a… (Ctrl K)' },
-        { p: 'Pulsa «Ctrl K» (en Mac, «⌘ K») desde cualquier pantalla, o el botón «Buscar o ir a…». Escribe parte de un nombre y elige con las flechas y «Enter».' },
+        { p: 'Pulsa «Ctrl K» (en Mac, «Cmd K») desde cualquier pantalla, o el botón «Buscar o ir a…». Escribe parte de un nombre y elige con las flechas y «Enter».' },
         { lista: [
           'Encuentra páginas, emprendimientos, programas, sesiones, personas y mentores.',
           'Sin escribir nada ofrece atajos: «Nueva sesión» y «Registrar seguimiento».',

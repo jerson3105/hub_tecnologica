@@ -15,7 +15,8 @@ const DOCUMENTOS = {
   impacto: InformeImpacto,
   satisfaccion: InformeSatisfaccion,
   onepager: OnePagerPdf,
-  manual: ManualPdf
+  manual: ManualPdf,
+  manualEmprendedor: ManualPdf
 };
 
 // Logo del propio proyecto: react-pdf necesita la imagen ya cargada
